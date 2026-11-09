@@ -78,6 +78,9 @@ const AVAILABLE_COLORS = [
 
 const BOT_NAMES = ['CyberBot-01', 'NeonRacer-AI', 'Quantum-X', 'TurboByte'];
 
+// 4 Faixas bem definidas e centradas
+const LANE_OFFSETS = [-130, -45, 45, 130];
+
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -92,12 +95,12 @@ function createRoom(code, hostSocketId, hostName, hostColor) {
   return {
     code,
     hostId: hostSocketId,
-    mode: 'race', // 'race' | 'survival'
+    mode: 'race',
     totalLaps: 3,
-    trackLength: 2200, // metros por volta
-    status: 'lobby', // 'lobby' | 'starting' | 'racing' | 'podium'
+    trackLength: 1600, // calibrado para corridas dinâmicas e equilibradas
+    status: 'lobby',
     countdown: 3,
-    fillBots: true, // Preenche vagas vazias com Bots para sempre ter 4 carros
+    fillBots: true,
     difficulty: 'normal',
     players: new Map([
       [
@@ -109,15 +112,14 @@ function createRoom(code, hostSocketId, hostName, hostColor) {
           isHost: true,
           isBot: false,
           ready: false,
-          // Física e posição na pista (-180 a +180 no eixo X)
-          x: -60,
+          x: -45,
           y: 0,
-          targetX: -60,
+          targetX: -45,
           distance: 0,
           speed: 0,
-          maxSpeed: 17,
-          accel: 0.22,
-          steerSpeed: 4.5,
+          maxSpeed: 6.8, // Velocidade calibrada para controle arcade preciso
+          accel: 0.15,
+          steerSpeed: 4.8,
           nitroRemaining: 100,
           nitroActive: false,
           nitroTimer: 0,
@@ -127,18 +129,22 @@ function createRoom(code, hostSocketId, hostName, hostColor) {
           empTimer: 0,
           draftTimer: 0,
           draftActive: false,
+          invulnerableTimer: 0,
           item: null,
           lapsCompleted: 0,
           finished: false,
           finishTime: null,
           finishRank: 0,
+          crashesCount: 0,
+          itemsUsedCount: 0,
+          topSpeed: 0,
           score: 0,
           inputs: { left: false, right: false, up: false, down: false, nitro: false, useItem: false }
         }
       ]
     ]),
-    trackEntities: [], // Caixas de itens, pads de turbo, obstáculos
-    activeHazards: [], // Manchas de óleo e mísseis em trânsito
+    trackEntities: [],
+    activeHazards: [],
     raceStartTime: 0,
     finishers: [],
     gameLoopInterval: null,
@@ -146,16 +152,14 @@ function createRoom(code, hostSocketId, hostName, hostColor) {
   };
 }
 
-// Inicializa a pista (obstáculos, itens, pads de turbo)
+// Inicializa a pista garantindo faixas livres e boa jogabilidade
 function buildTrackEntities(trackLength, totalLaps) {
   const entities = [];
   const fullDistance = trackLength * totalLaps;
-  const laneOffsets = [-130, -45, 45, 130]; // 4 pistas distintas
 
-  // Gera caixas de itens a cada 180-260 metros
-  for (let d = 160; d < fullDistance - 150; d += 210 + Math.random() * 60) {
-    // 2 a 3 caixas em faixas aleatórias
-    const usedLanes = [...laneOffsets].sort(() => Math.random() - 0.5).slice(0, 2);
+  // Caixas de itens a cada 240-320 metros
+  for (let d = 180; d < fullDistance - 150; d += 260 + Math.random() * 60) {
+    const usedLanes = [...LANE_OFFSETS].sort(() => Math.random() - 0.5).slice(0, 2);
     usedLanes.forEach(xPos => {
       entities.push({
         id: 'box_' + Math.floor(d) + '_' + xPos,
@@ -164,38 +168,40 @@ function buildTrackEntities(trackLength, totalLaps) {
         x: xPos,
         width: 32,
         height: 32,
-        collectedBy: null,
         respawnTimer: 0
       });
     });
   }
 
-  // Gera pads de turbo (Boost Strips)
-  for (let d = 260; d < fullDistance - 100; d += 280 + Math.random() * 80) {
-    const lane = laneOffsets[Math.floor(Math.random() * laneOffsets.length)];
+  // Pads de Turbo no chão a cada 320-420 metros
+  for (let d = 280; d < fullDistance - 120; d += 360 + Math.random() * 80) {
+    const lane = LANE_OFFSETS[Math.floor(Math.random() * LANE_OFFSETS.length)];
     entities.push({
       id: 'boost_' + Math.floor(d) + '_' + lane,
       type: 'boost_pad',
       distance: d,
       x: lane,
-      width: 40,
+      width: 42,
       height: 48
     });
   }
 
-  // Gera obstáculos (cones, barreiras cibernéticas, drones)
-  for (let d = 200; d < fullDistance - 80; d += 140 + Math.random() * 90) {
-    const lane = laneOffsets[Math.floor(Math.random() * laneOffsets.length)];
-    const obsTypes = ['cone', 'barrier', 'drone'];
-    const type = obsTypes[Math.floor(Math.random() * obsTypes.length)];
-    entities.push({
-      id: 'obs_' + Math.floor(d) + '_' + lane,
-      type: 'obstacle',
-      subType: type,
-      distance: d,
-      x: lane + (Math.random() * 20 - 10),
-      width: type === 'barrier' ? 44 : 28,
-      height: 28
+  // Obstáculos espaçados com pelo menos 2 faixas sempre livres para desvio
+  for (let d = 220; d < fullDistance - 80; d += 190 + Math.random() * 70) {
+    const obsLanes = [...LANE_OFFSETS].sort(() => Math.random() - 0.5).slice(0, 1 + (Math.random() > 0.6 ? 1 : 0));
+    obsLanes.forEach(lane => {
+      const obsTypes = ['cone', 'barrier', 'drone'];
+      const type = obsTypes[Math.floor(Math.random() * obsTypes.length)];
+      entities.push({
+        id: 'obs_' + Math.floor(d) + '_' + lane,
+        type: 'obstacle',
+        subType: type,
+        distance: d,
+        x: lane,
+        width: type === 'barrier' ? 44 : 30,
+        height: 28,
+        respawnTimer: 0
+      });
     });
   }
 
@@ -204,7 +210,6 @@ function buildTrackEntities(trackLength, totalLaps) {
 
 // Preenche vagas restantes na sala com Bots
 function populateBots(room) {
-  // Remove bots antigos
   for (const [id, player] of room.players.entries()) {
     if (player.isBot) room.players.delete(id);
   }
@@ -213,7 +218,6 @@ function populateBots(room) {
 
   const currentCount = room.players.size;
   const needed = Math.max(0, 4 - currentCount);
-  const laneOffsets = [-130, -45, 45, 130];
 
   for (let i = 0; i < needed; i++) {
     const botId = 'bot_' + i + '_' + Date.now();
@@ -227,13 +231,13 @@ function populateBots(room) {
       isHost: false,
       isBot: true,
       ready: true,
-      x: laneOffsets[(currentCount + i) % 4],
-      targetX: laneOffsets[(currentCount + i) % 4],
+      x: LANE_OFFSETS[(currentCount + i) % 4],
+      targetX: LANE_OFFSETS[(currentCount + i) % 4],
       distance: 0,
       speed: 0,
-      maxSpeed: 16.5 + Math.random() * 1.2,
-      accel: 0.20 + Math.random() * 0.04,
-      steerSpeed: 4.0,
+      maxSpeed: 6.5 + Math.random() * 0.5,
+      accel: 0.14 + Math.random() * 0.02,
+      steerSpeed: 4.4,
       nitroRemaining: 100,
       nitroActive: false,
       nitroTimer: 0,
@@ -243,11 +247,15 @@ function populateBots(room) {
       empTimer: 0,
       draftTimer: 0,
       draftActive: false,
+      invulnerableTimer: 0,
       item: null,
       lapsCompleted: 0,
       finished: false,
       finishTime: null,
       finishRank: 0,
+      crashesCount: 0,
+      itemsUsedCount: 0,
+      topSpeed: 0,
       score: 0,
       botReactionTimer: 0,
       inputs: { left: false, right: false, up: true, down: false, nitro: false, useItem: false }
@@ -263,16 +271,13 @@ function startRoomRace(room) {
   room.activeHazards = [];
   room.trackEntities = buildTrackEntities(room.trackLength, room.totalLaps);
 
-  // Preenche com bots se configurado
   populateBots(room);
 
-  // Posiciona os jogadores no grid de largada
-  const startXPositions = [-130, -45, 45, 130];
   let idx = 0;
   for (const player of room.players.values()) {
     player.distance = 0;
     player.speed = 0;
-    player.x = startXPositions[idx % 4];
+    player.x = LANE_OFFSETS[idx % 4];
     player.targetX = player.x;
     player.nitroRemaining = 100;
     player.nitroActive = false;
@@ -283,12 +288,15 @@ function startRoomRace(room) {
     player.empTimer = 0;
     player.draftTimer = 0;
     player.draftActive = false;
+    player.invulnerableTimer = 0;
     player.item = null;
     player.finished = false;
     player.finishTime = null;
     player.finishRank = 0;
     player.lapsCompleted = 0;
-    player.score = 0;
+    player.crashesCount = 0;
+    player.itemsUsedCount = 0;
+    player.topSpeed = 0;
     idx++;
   }
 
@@ -300,13 +308,12 @@ function startRoomRace(room) {
     mode: room.mode
   });
 
-  // Contagem regressiva 3, 2, 1, LARGADA!
   const countdownInterval = setInterval(() => {
     room.countdown--;
     if (room.countdown > 0) {
       io.to(room.code).emit('countdown_tick', { countdown: room.countdown });
     } else if (room.countdown === 0) {
-      io.to(room.code).emit('countdown_tick', { countdown: 0 }); // 0 = LARGADA / GO!
+      io.to(room.code).emit('countdown_tick', { countdown: 0 });
       room.status = 'racing';
       room.raceStartTime = Date.now();
       clearInterval(countdownInterval);
@@ -327,6 +334,7 @@ function executeItemUse(room, player) {
   if (!player.item) return;
   const itemType = player.item;
   player.item = null;
+  player.itemsUsedCount = (player.itemsUsedCount || 0) + 1;
 
   io.to(room.code).emit('item_activated', {
     playerId: player.id,
@@ -336,37 +344,36 @@ function executeItemUse(room, player) {
 
   if (itemType === 'boost') {
     player.nitroActive = true;
-    player.nitroTimer = 85; // ~2.8 segundos a 30fps
+    player.nitroTimer = 75; // ~2.5s a 30fps
   } else if (itemType === 'shield') {
     player.shieldActive = true;
-    player.shieldTimer = 300; // 10 segundos ou até quebrar
+    player.shieldTimer = 300;
   } else if (itemType === 'oil') {
-    // Solta mancha logo atrás do carro
     room.activeHazards.push({
       id: 'hazard_oil_' + Date.now() + '_' + Math.random(),
       type: 'oil',
       x: player.x,
-      distance: Math.max(0, player.distance - 25),
+      distance: Math.max(0, player.distance - 20),
       ownerId: player.id,
-      lifetime: 600 // dura 20 segundos
+      lifetime: 500
     });
   } else if (itemType === 'emp') {
-    // Pulso EMP: afeta rivais em um raio de 180 metros de distância
     for (const other of room.players.values()) {
       if (other.id !== player.id && !other.finished) {
         const distDiff = Math.abs(other.distance - player.distance);
-        if (distDiff < 180) {
+        if (distDiff < 160) {
           if (other.shieldActive) {
             other.shieldActive = false;
             other.shieldTimer = 0;
+            io.to(room.code).emit('shield_blocked', { playerId: other.id });
           } else {
-            other.empTimer = 75; // ~2.5s com velocidade reduzida
+            other.empTimer = 65;
+            other.crashesCount = (other.crashesCount || 0) + 1;
           }
         }
       }
     }
   } else if (itemType === 'missile') {
-    // Encontra o rival mais próximo à frente
     let target = null;
     let minForwardDist = Infinity;
     for (const other of room.players.values()) {
@@ -384,10 +391,10 @@ function executeItemUse(room, player) {
       type: 'missile',
       x: player.x,
       distance: player.distance + 15,
-      speed: 42,
+      speed: 18,
       targetId: target ? target.id : null,
       ownerId: player.id,
-      lifetime: 150
+      lifetime: 140
     });
   }
 }
@@ -415,32 +422,32 @@ function launchGameLoop(room) {
     // 2. Atualizar física de cada jogador
     playersList.forEach(player => {
       if (player.finished) {
-        // Desacelera gradualmente após cruzar a linha
-        player.speed = Math.max(0, player.speed - 0.2);
-        player.distance += player.speed * 0.5;
+        player.speed = Math.max(0, player.speed - 0.15);
+        player.distance += player.speed * 0.4;
         return;
       }
 
-      // Temporizadores de efeitos negativos
+      // Temporizadores de efeitos
       if (player.spunTimer > 0) {
         player.spunTimer--;
-        player.speed = Math.max(3, player.speed - 0.5);
+        player.speed = Math.max(1.8, player.speed - 0.3);
       }
       if (player.empTimer > 0) {
         player.empTimer--;
+      }
+      if (player.invulnerableTimer > 0) {
+        player.invulnerableTimer--;
       }
       if (player.shieldTimer > 0) {
         player.shieldTimer--;
         if (player.shieldTimer <= 0) player.shieldActive = false;
       }
-
-      // Nitro temporizado
       if (player.nitroTimer > 0) {
         player.nitroTimer--;
         if (player.nitroTimer <= 0) player.nitroActive = false;
       }
 
-      // Determina velocidade máxima atual
+      // Velocidade máxima atual
       let currentMaxSpeed = player.maxSpeed;
       if (player.nitroActive) {
         currentMaxSpeed = player.maxSpeed * 1.55;
@@ -449,10 +456,10 @@ function launchGameLoop(room) {
       }
 
       if (player.empTimer > 0) {
-        currentMaxSpeed *= 0.55; // Redução de velocidade por EMP
+        currentMaxSpeed *= 0.55;
       }
       if (player.spunTimer > 0) {
-        currentMaxSpeed = Math.min(currentMaxSpeed, 5);
+        currentMaxSpeed = Math.min(currentMaxSpeed, 2.5);
       }
 
       // Aceleração / Frenagem
@@ -463,16 +470,15 @@ function launchGameLoop(room) {
         if (player.speed < currentMaxSpeed) {
           player.speed += player.accel * (player.nitroActive ? 2.0 : 1.0);
         } else {
-          player.speed = Math.max(currentMaxSpeed, player.speed - 0.1);
+          player.speed = Math.max(currentMaxSpeed, player.speed - 0.08);
         }
       } else if (isBraking) {
-        player.speed = Math.max(0, player.speed - 0.45);
+        player.speed = Math.max(0, player.speed - 0.35);
       } else {
-        // Desaceleração natural
-        player.speed = Math.max(0, player.speed - 0.12);
+        player.speed = Math.max(0, player.speed - 0.08);
       }
 
-      // Direção lateral (Eixo X entre -175 e +175)
+      // Direção lateral (limites: -175 a +175)
       if (player.spunTimer <= 0) {
         if (player.inputs.left) {
           player.x = Math.max(-175, player.x - player.steerSpeed);
@@ -485,7 +491,10 @@ function launchGameLoop(room) {
       // Avanço longitudinal na pista
       player.distance += player.speed;
 
-      // Calcular volta atual
+      // Registrar velocidade máxima para as estatísticas
+      player.topSpeed = Math.max(player.topSpeed || 0, player.speed);
+
+      // Volta atual
       const currentLap = Math.min(
         room.totalLaps,
         Math.floor(player.distance / room.trackLength) + 1
@@ -499,18 +508,18 @@ function launchGameLoop(room) {
       }
 
       // Ativação manual de nitro
-      if (player.inputs.nitro && player.nitroRemaining > 20 && !player.nitroActive) {
+      if (player.inputs.nitro && player.nitroRemaining > 25 && !player.nitroActive) {
         player.nitroActive = true;
         player.nitroTimer = 45;
-        player.nitroRemaining = Math.max(0, player.nitroRemaining - 35);
+        player.nitroRemaining = Math.max(0, player.nitroRemaining - 30);
       }
 
-      // Regeneração gradual de nitro
+      // Regeneração de nitro
       if (!player.nitroActive && player.nitroRemaining < 100) {
-        player.nitroRemaining = Math.min(100, player.nitroRemaining + 0.15);
+        player.nitroRemaining = Math.min(100, player.nitroRemaining + 0.18);
       }
 
-      // Verificação de Linha de Chegada
+      // Linha de Chegada
       if (player.distance >= totalTrackDistance && !player.finished) {
         player.finished = true;
         player.finishTime = ((Date.now() - room.raceStartTime) / 1000).toFixed(2);
@@ -521,7 +530,10 @@ function launchGameLoop(room) {
           color: player.color,
           isBot: player.isBot,
           time: player.finishTime,
-          rank: player.finishRank
+          rank: player.finishRank,
+          crashes: player.crashesCount || 0,
+          itemsUsed: player.itemsUsedCount || 0,
+          topSpeed: Math.round((player.topSpeed || player.speed) * 22)
         });
 
         io.to(room.code).emit('player_finished', {
@@ -531,18 +543,17 @@ function launchGameLoop(room) {
           name: player.name
         });
 
-        // Se o 1º colocado terminou, agenda o encerramento da corrida em 12 segundos caso outros ainda não terminem
         if (room.finishers.length === 1 && playersList.length > 1) {
           setTimeout(() => {
             if (room.status === 'racing') {
               finalizeRace(room);
             }
-          }, 14000);
+          }, 15000);
         }
       }
     });
 
-    // 3. Efeito Vácuo (Slipstream / Drafting)
+    // 3. Vácuo (Slipstream)
     for (let i = 0; i < playersList.length; i++) {
       const p1 = playersList[i];
       if (p1.finished) continue;
@@ -554,10 +565,9 @@ function launchGameLoop(room) {
         const distDiff = p2.distance - p1.distance;
         const lateralDiff = Math.abs(p2.x - p1.x);
 
-        // Se p2 está logo à frente (entre 18 e 75m) e no mesmo alinhamento
-        if (distDiff > 18 && distDiff < 75 && lateralDiff < 36) {
+        if (distDiff > 14 && distDiff < 65 && lateralDiff < 34) {
           p1.draftTimer += 1;
-          if (p1.draftTimer > 25) {
+          if (p1.draftTimer > 20) {
             p1.draftActive = true;
           }
           break;
@@ -568,7 +578,7 @@ function launchGameLoop(room) {
       }
     }
 
-    // 4. Colisões entre jogadores (Bump & Spark)
+    // 4. Colisões entre jogadores (Bump)
     for (let i = 0; i < playersList.length; i++) {
       for (let j = i + 1; j < playersList.length; j++) {
         const a = playersList[i];
@@ -578,9 +588,8 @@ function launchGameLoop(room) {
         const distDiff = Math.abs(a.distance - b.distance);
         const latDiff = Math.abs(a.x - b.x);
 
-        if (distDiff < 32 && latDiff < 30) {
-          // Empurra lateralmente em direções opostas
-          const push = 12;
+        if (distDiff < 26 && latDiff < 28) {
+          const push = 10;
           if (a.x < b.x) {
             a.x = Math.max(-175, a.x - push);
             b.x = Math.min(175, b.x + push);
@@ -596,9 +605,8 @@ function launchGameLoop(room) {
       }
     }
 
-    // 5. Interação com Entidades da Pista (Itens, Boosts, Obstáculos)
+    // 5. Interação com Entidades da Pista com Detecção de Colisão Precisa
     room.trackEntities.forEach(entity => {
-      // Reativação de caixas de itens
       if (entity.respawnTimer > 0) {
         entity.respawnTimer--;
         return;
@@ -606,14 +614,18 @@ function launchGameLoop(room) {
 
       playersList.forEach(player => {
         if (player.finished) return;
-        const distDiff = Math.abs(player.distance - entity.distance);
+
+        // O parachoque dianteiro do carro fica em player.distance + 18
+        // O parachoque traseiro fica em player.distance - 20
+        const relDist = entity.distance - player.distance;
         const latDiff = Math.abs(player.x - entity.x);
 
-        if (distDiff < 25 && latDiff < 32) {
-          if (entity.type === 'item_box' && entity.respawnTimer <= 0) {
+        // Caixa de colisão calibrada para o momento exato do impacto visual
+        if (relDist <= 22 && relDist >= -16 && latDiff < 30) {
+          if (entity.type === 'item_box') {
             if (!player.item) {
               player.item = getRandomItem();
-              entity.respawnTimer = 180; // ~6 segundos para reaparecer
+              entity.respawnTimer = 180;
               io.to(room.code).emit('item_collected', {
                 boxId: entity.id,
                 playerId: player.id,
@@ -621,7 +633,7 @@ function launchGameLoop(room) {
               });
             }
           } else if (entity.type === 'boost_pad') {
-            player.speed = Math.min(player.maxSpeed * 1.5, player.speed + 6);
+            player.speed = Math.min(player.maxSpeed * 1.5, player.speed + 3.5);
             player.nitroActive = true;
             player.nitroTimer = 40;
             io.to(room.code).emit('boost_hit', {
@@ -629,13 +641,20 @@ function launchGameLoop(room) {
               padId: entity.id
             });
           } else if (entity.type === 'obstacle') {
+            if (player.invulnerableTimer > 0) return;
+
             if (player.shieldActive) {
               player.shieldActive = false;
               player.shieldTimer = 0;
+              player.invulnerableTimer = 25;
+              entity.respawnTimer = 80;
               io.to(room.code).emit('shield_blocked', { playerId: player.id });
             } else {
-              player.speed = Math.max(3, player.speed * 0.4);
-              player.spunTimer = 25; // Roda e perde controle por ~0.8s
+              player.crashesCount = (player.crashesCount || 0) + 1;
+              player.speed = Math.max(1.8, player.speed * 0.4);
+              player.spunTimer = 22;
+              player.invulnerableTimer = 35; // Evita múltiplas batidas no mesmo obstáculo
+              entity.respawnTimer = 80;
               io.to(room.code).emit('obstacle_hit', {
                 playerId: player.id,
                 obsId: entity.id,
@@ -648,7 +667,7 @@ function launchGameLoop(room) {
       });
     });
 
-    // 6. Atualizar Projéteis e Armadilhas (Mísseis e Óleo)
+    // 6. Projéteis e Armadilhas
     for (let i = room.activeHazards.length - 1; i >= 0; i--) {
       const h = room.activeHazards[i];
       h.lifetime--;
@@ -656,20 +675,23 @@ function launchGameLoop(room) {
       if (h.type === 'missile') {
         h.distance += h.speed;
 
-        // Tenta acertar alvo
         let hit = false;
         playersList.forEach(player => {
           if (player.id !== h.ownerId && !player.finished) {
             const dDiff = Math.abs(player.distance - h.distance);
             const lDiff = Math.abs(player.x - h.x);
-            if (dDiff < 30 && lDiff < 35) {
+            if (dDiff < 24 && lDiff < 30) {
               hit = true;
               if (player.shieldActive) {
                 player.shieldActive = false;
                 player.shieldTimer = 0;
+                player.invulnerableTimer = 25;
+                io.to(room.code).emit('shield_blocked', { playerId: player.id });
               } else {
-                player.spunTimer = 45;
-                player.speed = Math.max(2, player.speed * 0.3);
+                player.crashesCount = (player.crashesCount || 0) + 1;
+                player.spunTimer = 35;
+                player.invulnerableTimer = 35;
+                player.speed = Math.max(1.5, player.speed * 0.3);
               }
               io.to(room.code).emit('missile_exploded', {
                 x: player.x,
@@ -684,20 +706,23 @@ function launchGameLoop(room) {
           room.activeHazards.splice(i, 1);
         }
       } else if (h.type === 'oil') {
-        // Verifica se alguém pisou no óleo
         let stepped = false;
         playersList.forEach(player => {
-          if (!player.finished) {
+          if (!player.finished && player.invulnerableTimer <= 0) {
             const dDiff = Math.abs(player.distance - h.distance);
             const lDiff = Math.abs(player.x - h.x);
-            if (dDiff < 20 && lDiff < 26) {
+            if (dDiff < 18 && lDiff < 24) {
               stepped = true;
               if (player.shieldActive) {
                 player.shieldActive = false;
                 player.shieldTimer = 0;
+                player.invulnerableTimer = 25;
+                io.to(room.code).emit('shield_blocked', { playerId: player.id });
               } else {
-                player.spunTimer = 40;
-                player.speed = Math.max(2, player.speed * 0.35);
+                player.crashesCount = (player.crashesCount || 0) + 1;
+                player.spunTimer = 30;
+                player.invulnerableTimer = 35;
+                player.speed = Math.max(1.5, player.speed * 0.35);
               }
               io.to(room.code).emit('oil_slip', {
                 playerId: player.id,
@@ -714,7 +739,7 @@ function launchGameLoop(room) {
       }
     }
 
-    // 7. Ordenar posições na corrida (1º, 2º, 3º, 4º)
+    // 7. Ordenar posições na corrida
     const sorted = [...playersList].sort((a, b) => {
       if (a.finished && b.finished) return a.finishRank - b.finishRank;
       if (a.finished) return -1;
@@ -726,7 +751,7 @@ function launchGameLoop(room) {
       p.liveRank = index + 1;
     });
 
-    // 8. Enviar estado para todos os clientes da sala
+    // 8. Enviar estado para a sala
     io.to(room.code).emit('game_tick', {
       players: playersList.map(p => ({
         id: p.id,
@@ -742,8 +767,10 @@ function launchGameLoop(room) {
         spunTimer: p.spunTimer,
         empTimer: p.empTimer,
         draftActive: p.draftActive,
+        invulnerableTimer: p.invulnerableTimer,
         item: p.item,
         lapsCompleted: p.lapsCompleted,
+        crashesCount: p.crashesCount,
         finished: p.finished,
         finishRank: p.finishRank,
         liveRank: p.liveRank
@@ -752,7 +779,6 @@ function launchGameLoop(room) {
       trackEntities: room.trackEntities.filter(e => e.respawnTimer <= 0)
     });
 
-    // Se todos terminaram, finalizar corrida
     const activeHumans = playersList.filter(p => !p.isBot);
     const allFinished = playersList.every(p => p.finished);
     const allHumansFinished = activeHumans.every(p => p.finished);
@@ -760,29 +786,25 @@ function launchGameLoop(room) {
     if (allFinished || (activeHumans.length > 0 && allHumansFinished)) {
       finalizeRace(room);
     }
-  }, 33); // ~30 fps
+  }, 33);
 }
 
 // Lógica de piloto automático para os Bots
 function updateBotAI(bot, room, allPlayers) {
   bot.botReactionTimer = (bot.botReactionTimer || 0) + 1;
-  const laneOffsets = [-130, -45, 45, 130];
 
-  // Desviar de obstáculos e caixas no caminho
-  if (bot.botReactionTimer % 10 === 0) {
-    const lookAheadDist = 180;
+  if (bot.botReactionTimer % 8 === 0) {
+    const lookAheadDist = 140;
     const nearbyHazard = room.trackEntities.find(
-      e => e.type === 'obstacle' && e.distance > bot.distance && e.distance < bot.distance + lookAheadDist && Math.abs(e.x - bot.x) < 40
+      e => e.type === 'obstacle' && e.distance > bot.distance && e.distance < bot.distance + lookAheadDist && Math.abs(e.x - bot.x) < 38
     );
 
     if (nearbyHazard) {
-      // Escolhe faixa adjacente livre
-      const alternativeLanes = laneOffsets.filter(l => Math.abs(l - nearbyHazard.x) > 60);
-      bot.targetX = alternativeLanes[Math.floor(Math.random() * alternativeLanes.length)] || 0;
+      const altLanes = LANE_OFFSETS.filter(l => Math.abs(l - nearbyHazard.x) > 55);
+      bot.targetX = altLanes[Math.floor(Math.random() * altLanes.length)] || 0;
     } else {
-      // Mira em caixas de itens ou pads de turbo
       const goodTarget = room.trackEntities.find(
-        e => (e.type === 'item_box' || e.type === 'boost_pad') && e.distance > bot.distance && e.distance < bot.distance + 220
+        e => (e.type === 'item_box' || e.type === 'boost_pad') && e.distance > bot.distance && e.distance < bot.distance + 180
       );
       if (goodTarget && Math.random() > 0.3) {
         bot.targetX = goodTarget.x;
@@ -790,7 +812,6 @@ function updateBotAI(bot, room, allPlayers) {
     }
   }
 
-  // Suaviza movimentação até a posição alvo
   if (bot.targetX !== undefined) {
     const diff = bot.targetX - bot.x;
     if (Math.abs(diff) > 4) {
@@ -802,34 +823,31 @@ function updateBotAI(bot, room, allPlayers) {
     }
   }
 
-  // Uso inteligente de itens pelo Bot
   if (bot.item && Math.random() < 0.05) {
     if (bot.item === 'boost' || bot.item === 'shield') {
       executeItemUse(room, bot);
     } else if (bot.item === 'missile') {
-      const someoneAhead = allPlayers.some(p => p.id !== bot.id && p.distance > bot.distance && p.distance < bot.distance + 350);
+      const someoneAhead = allPlayers.some(p => p.id !== bot.id && p.distance > bot.distance && p.distance < bot.distance + 280);
       if (someoneAhead) executeItemUse(room, bot);
     } else if (bot.item === 'oil' || bot.item === 'emp') {
-      const someoneBehind = allPlayers.some(p => p.id !== bot.id && Math.abs(p.distance - bot.distance) < 80);
+      const someoneBehind = allPlayers.some(p => p.id !== bot.id && Math.abs(p.distance - bot.distance) < 70);
       if (someoneBehind) executeItemUse(room, bot);
     }
   }
 
-  // Uso inteligente de Nitro
-  if (bot.nitroRemaining > 75 && Math.random() < 0.02) {
+  if (bot.nitroRemaining > 80 && Math.random() < 0.03) {
     bot.nitroActive = true;
-    bot.nitroTimer = 45;
-    bot.nitroRemaining -= 35;
+    bot.nitroTimer = 40;
+    bot.nitroRemaining -= 30;
   }
 }
 
-// Finaliza a corrida e envia pódio
+// Finaliza a corrida e envia pódio com todas as estatísticas detalhadas
 function finalizeRace(room) {
   if (room.status === 'podium') return;
   room.status = 'podium';
   if (room.gameLoopInterval) clearInterval(room.gameLoopInterval);
 
-  // Garante que todos que não terminaram recebam uma classificação por distância
   const playersList = Array.from(room.players.values());
   const unfinished = playersList.filter(p => !p.finished).sort((a, b) => b.distance - a.distance);
 
@@ -840,7 +858,10 @@ function finalizeRace(room) {
       color: p.color,
       isBot: p.isBot,
       time: 'DNF',
-      rank: room.finishers.length + 1
+      rank: room.finishers.length + 1,
+      crashes: p.crashesCount || 0,
+      itemsUsed: p.itemsUsedCount || 0,
+      topSpeed: Math.round((p.topSpeed || p.speed || 0) * 22)
     });
   });
 
@@ -856,7 +877,6 @@ function finalizeRace(room) {
 io.on('connection', socket => {
   let currentRoomCode = null;
 
-  // Cria uma nova sala
   socket.on('create_room', data => {
     const code = generateRoomCode();
     const room = createRoom(code, socket.id, data.nickname, data.color);
@@ -884,7 +904,6 @@ io.on('connection', socket => {
     emitPublicRooms();
   });
 
-  // Entra em uma sala existente
   socket.on('join_room', data => {
     const code = (data.roomCode || '').toUpperCase().trim();
     const room = rooms.get(code);
@@ -897,13 +916,11 @@ io.on('connection', socket => {
       return socket.emit('error_message', { message: 'Esta partida já começou!' });
     }
 
-    // Contar apenas humanos conectados
     const humanCount = Array.from(room.players.values()).filter(p => !p.isBot).length;
     if (humanCount >= 4) {
       return socket.emit('error_message', { message: 'Esta sala já está cheia (máximo 4 jogadores)!' });
     }
 
-    // Escolhe cor não repetida se possível
     let chosenColor = data.color || AVAILABLE_COLORS[room.players.size % AVAILABLE_COLORS.length];
 
     const newPlayer = {
@@ -913,13 +930,13 @@ io.on('connection', socket => {
       isHost: false,
       isBot: false,
       ready: false,
-      x: 0,
-      targetX: 0,
+      x: LANE_OFFSETS[room.players.size % 4],
+      targetX: LANE_OFFSETS[room.players.size % 4],
       distance: 0,
       speed: 0,
-      maxSpeed: 17,
-      accel: 0.22,
-      steerSpeed: 4.5,
+      maxSpeed: 6.8,
+      accel: 0.15,
+      steerSpeed: 4.8,
       nitroRemaining: 100,
       nitroActive: false,
       nitroTimer: 0,
@@ -929,11 +946,15 @@ io.on('connection', socket => {
       empTimer: 0,
       draftTimer: 0,
       draftActive: false,
+      invulnerableTimer: 0,
       item: null,
       lapsCompleted: 0,
       finished: false,
       finishTime: null,
       finishRank: 0,
+      crashesCount: 0,
+      itemsUsedCount: 0,
+      topSpeed: 0,
       score: 0,
       inputs: { left: false, right: false, up: false, down: false, nitro: false, useItem: false }
     };
@@ -962,7 +983,6 @@ io.on('connection', socket => {
     emitPublicRooms();
   });
 
-  // Alternar status de "Pronto"
   socket.on('toggle_ready', () => {
     if (!currentRoomCode) return;
     const room = rooms.get(currentRoomCode);
@@ -977,7 +997,6 @@ io.on('connection', socket => {
     }
   });
 
-  // Atualizar configurações da sala pelo Host
   socket.on('update_room_settings', data => {
     if (!currentRoomCode) return;
     const room = rooms.get(currentRoomCode);
@@ -994,7 +1013,6 @@ io.on('connection', socket => {
     });
   });
 
-  // Iniciar partida (Host)
   socket.on('start_race_request', () => {
     if (!currentRoomCode) return;
     const room = rooms.get(currentRoomCode);
@@ -1004,7 +1022,6 @@ io.on('connection', socket => {
     startRoomRace(room);
   });
 
-  // Receber comandos de entrada do jogador
   socket.on('player_input', inputs => {
     if (!currentRoomCode) return;
     const room = rooms.get(currentRoomCode);
@@ -1023,7 +1040,6 @@ io.on('connection', socket => {
     }
   });
 
-  // Reiniciar para o Lobby após a partida
   socket.on('rematch_request', () => {
     if (!currentRoomCode) return;
     const room = rooms.get(currentRoomCode);
@@ -1034,7 +1050,6 @@ io.on('connection', socket => {
     room.activeHazards = [];
     room.trackEntities = [];
 
-    // Remove bots para voltar ao lobby limpo
     for (const [id, player] of room.players.entries()) {
       if (player.isBot) {
         room.players.delete(id);
@@ -1044,6 +1059,9 @@ io.on('connection', socket => {
         player.finishRank = 0;
         player.distance = 0;
         player.speed = 0;
+        player.crashesCount = 0;
+        player.itemsUsedCount = 0;
+        player.topSpeed = 0;
       }
     }
 
@@ -1059,7 +1077,6 @@ io.on('connection', socket => {
     });
   });
 
-  // Desconexão
   socket.on('disconnect', () => {
     if (!currentRoomCode) return;
     const room = rooms.get(currentRoomCode);
@@ -1067,7 +1084,6 @@ io.on('connection', socket => {
 
     room.players.delete(socket.id);
 
-    // Se o host saiu, transfere a liderança para o próximo humano
     if (room.hostId === socket.id) {
       const remainingHumans = Array.from(room.players.values()).filter(p => !p.isBot);
       if (remainingHumans.length > 0) {
@@ -1076,7 +1092,6 @@ io.on('connection', socket => {
       }
     }
 
-    // Se a sala ficou sem humanos, exclui após 30 segundos
     const humanCount = Array.from(room.players.values()).filter(p => !p.isBot).length;
     if (humanCount === 0) {
       if (room.gameLoopInterval) clearInterval(room.gameLoopInterval);
@@ -1091,7 +1106,6 @@ io.on('connection', socket => {
   });
 });
 
-// Emite lista de salas abertas para quem está no menu
 function emitPublicRooms() {
   const publicList = [];
   for (const [code, room] of rooms.entries()) {
@@ -1109,7 +1123,6 @@ function emitPublicRooms() {
   io.emit('public_rooms_list', publicList);
 }
 
-// Iniciar servidor HTTP
 server.listen(PORT, () => {
   const ips = getLocalIpAddresses();
   console.log('================================================================');
@@ -1119,8 +1132,5 @@ server.listen(PORT, () => {
   ips.forEach(ip => {
     console.log(`📱 Rede Wi-Fi/IP: http://${ip}:${PORT}`);
   });
-  console.log('================================================================');
-  console.log('Apresentação para Feira de Inovação Tecnológica pronta!');
-  console.log('Conecte computadores ou celulares na mesma rede Wi-Fi.');
   console.log('================================================================');
 });

@@ -2,7 +2,7 @@
 // INOVATECH TURBO DRIFT - CLIENTE SOCKET.IO E CONTROLADOR PRINCIPAL
 // =============================================================================
 
-// Detecção dinâmica de conexão Socket.IO (funciona via Node direto ou Apache WAMP)
+// Conexão dinâmica Socket.IO (detecta se executado via Node direto ou Apache WAMP)
 const socketUrl = window.location.port === '3000' 
   ? window.location.origin 
   : `${window.location.protocol}//${window.location.hostname}:3000`;
@@ -27,12 +27,12 @@ const appState = {
   isHost: false,
   myId: null,
   totalLaps: 3,
-  trackLength: 2200,
+  trackLength: 1600,
   gameState: null,
   localInputs: {
     left: false,
     right: false,
-    up: true, // Aceleração suave contínua estilo arcade
+    up: true, // Aceleração suave estilo arcade
     down: false,
     nitro: false,
     useItem: false
@@ -43,9 +43,114 @@ const appState = {
 const canvas = document.getElementById('gameCanvas');
 const renderer = new GameRenderer(canvas);
 
-// Inicializar redimensionamento
 window.addEventListener('resize', () => renderer.resize());
 window.addEventListener('orientationchange', () => setTimeout(() => renderer.resize(), 200));
+
+// =============================================================================
+// GERENCIADOR DE HISTÓRICO PESSOAL (LOCAL STORAGE)
+// =============================================================================
+const STORAGE_KEY = 'inovatech_personal_stats';
+
+function getPersonalHistory() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    return {
+      totalRaces: 0,
+      wins: 0,
+      podiums: 0,
+      bestTime: null,
+      totalCrashes: 0,
+      recentRaces: []
+    };
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return { totalRaces: 0, wins: 0, podiums: 0, bestTime: null, totalCrashes: 0, recentRaces: [] };
+  }
+}
+
+function savePersonalRaceStats(myResult, totalLaps) {
+  if (!myResult) return;
+  const history = getPersonalHistory();
+
+  history.totalRaces++;
+  if (myResult.rank === 1) history.wins++;
+  if (myResult.rank <= 3) history.podiums++;
+
+  if (myResult.time && myResult.time !== 'DNF') {
+    const numTime = parseFloat(myResult.time);
+    if (!history.bestTime || numTime < history.bestTime) {
+      history.bestTime = numTime;
+    }
+  }
+
+  const crashes = myResult.crashes || 0;
+  history.totalCrashes += crashes;
+
+  const now = new Date();
+  const timeFormatted = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const entry = {
+    id: 'race_' + Date.now(),
+    timeLabel: timeFormatted,
+    rank: myResult.rank,
+    time: myResult.time,
+    crashes: crashes,
+    itemsUsed: myResult.itemsUsed || 0,
+    topSpeed: myResult.topSpeed || 0,
+    laps: totalLaps
+  };
+
+  history.recentRaces.unshift(entry);
+  if (history.recentRaces.length > 20) {
+    history.recentRaces = history.recentRaces.slice(0, 20); // Mantém as últimas 20 corridas
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+function renderPersonalHistoryModal() {
+  const history = getPersonalHistory();
+
+  document.getElementById('hist-total-races').textContent = history.totalRaces;
+  const winRate = history.totalRaces > 0 ? Math.round((history.wins / history.totalRaces) * 100) : 0;
+  document.getElementById('hist-wins').textContent = `${history.wins} (${winRate}%)`;
+  document.getElementById('hist-best-time').textContent = history.bestTime ? `${history.bestTime}s` : '--';
+  const avgCrashes = history.totalRaces > 0 ? (history.totalCrashes / history.totalRaces).toFixed(1) : '0.0';
+  document.getElementById('hist-avg-crashes').textContent = avgCrashes;
+
+  const tbody = document.getElementById('history-table-body');
+  tbody.innerHTML = '';
+
+  if (history.recentRaces.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="padding: 16px; color: var(--text-muted);">Nenhuma corrida registrada ainda neste aparelho. Complete uma corrida para salvar!</td></tr>';
+    return;
+  }
+
+  history.recentRaces.forEach(r => {
+    const row = document.createElement('tr');
+    const rankClass = r.rank === 1 ? 'rank-badge-1' : (r.rank === 2 ? 'rank-badge-2' : (r.rank === 3 ? 'rank-badge-3' : 'rank-badge-4'));
+    const trophy = r.rank === 1 ? '🥇 ' : (r.rank === 2 ? '🥈 ' : (r.rank === 3 ? '🥉 ' : '🏁 '));
+
+    row.innerHTML = `
+      <td>${r.timeLabel}</td>
+      <td class="${rankClass}">${trophy}${r.rank}º</td>
+      <td><strong>${r.time !== 'DNF' ? `${r.time}s` : 'DNF'}</strong></td>
+      <td><span style="color: ${r.crashes > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">${r.crashes}</span></td>
+      <td>${r.itemsUsed}</td>
+      <td>${r.topSpeed} KM/H</td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+function clearPersonalHistory() {
+  if (confirm('Tem certeza que deseja apagar seu histórico pessoal de corridas deste aparelho?')) {
+    localStorage.removeItem(STORAGE_KEY);
+    renderPersonalHistoryModal();
+  }
+}
 
 // =============================================================================
 // TROCA DE TELAS (SPA)
@@ -58,7 +163,7 @@ function showScreen(screenName) {
   });
 
   if (screenName === 'game') {
-    renderer.resize();
+    setTimeout(() => renderer.resize(), 50);
     gameAudio.ensureContext();
     gameAudio.startEngine();
   } else {
@@ -76,7 +181,6 @@ nickInput.addEventListener('input', e => {
   localStorage.setItem('inova_nickname', appState.nickname);
 });
 
-// Color picker buttons
 const colorButtons = document.querySelectorAll('.color-option');
 colorButtons.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -86,14 +190,12 @@ colorButtons.forEach(btn => {
   });
 });
 
-// Checar parâmetro da URL (?room=XYZ)
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('room');
 if (roomParam) {
   document.getElementById('input-room-code').value = roomParam.toUpperCase();
 }
 
-// Botões da Tela Inicial
 document.getElementById('btn-create-room').addEventListener('click', () => {
   gameAudio.ensureContext();
   socket.emit('create_room', {
@@ -124,11 +226,9 @@ document.getElementById('btn-join-room').addEventListener('click', () => {
 function updateLobbyUI(room) {
   document.getElementById('display-room-code').textContent = room.code;
 
-  // Atualiza link de compartilhamento
   const shareUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?room=${room.code}`;
   document.getElementById('share-room-link').value = shareUrl;
 
-  // Carrega QR Code da sala via API do servidor
   fetch(`/api/qrcode?url=${encodeURIComponent(shareUrl)}`)
     .then(res => res.json())
     .then(data => {
@@ -138,7 +238,6 @@ function updateLobbyUI(room) {
     })
     .catch(() => {});
 
-  // Renderizar slots de jogadores (até 4)
   const slotsContainer = document.getElementById('lobby-players-list');
   slotsContainer.innerHTML = '';
 
@@ -169,7 +268,6 @@ function updateLobbyUI(room) {
     slotsContainer.appendChild(slotCard);
   }
 
-  // Controles do Host
   const isHost = room.hostId === appState.myId;
   appState.isHost = isHost;
 
@@ -188,7 +286,6 @@ function updateLobbyUI(room) {
   }
 }
 
-// Botão Copiar Link
 document.getElementById('btn-copy-link').addEventListener('click', () => {
   const linkInput = document.getElementById('share-room-link');
   linkInput.select();
@@ -200,7 +297,6 @@ document.getElementById('btn-copy-link').addEventListener('click', () => {
   }, 2000);
 });
 
-// Ações do Host
 document.getElementById('select-laps').addEventListener('change', e => {
   if (appState.isHost) {
     socket.emit('update_room_settings', {
@@ -232,7 +328,7 @@ document.getElementById('btn-leave-lobby').addEventListener('click', () => {
 });
 
 // =============================================================================
-// CONTROLE DE TECLADO E TOQUE (MOBILE GAMEPAD)
+// CONTROLES DE TECLADO E TOQUE (MOBILE GAMEPAD)
 // =============================================================================
 const keyMap = {
   ArrowLeft: 'left',
@@ -269,7 +365,6 @@ function sendInputs() {
   socket.emit('player_input', appState.localInputs);
 }
 
-// Botões Touch no Celular
 function setupTouchButton(btnId, action) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
@@ -316,23 +411,18 @@ const itemIcons = {
 function updateHUD(localPlayer, allPlayers) {
   if (!localPlayer) return;
 
-  // Velocímetro digital
-  const speedKmH = Math.round(localPlayer.speed * 12);
+  const speedKmH = Math.round(localPlayer.speed * 22);
   document.getElementById('hud-speed-value').textContent = speedKmH;
 
-  // Barra de Nitro
   const nitroPct = Math.round(localPlayer.nitroRemaining || 0);
   document.getElementById('hud-nitro-fill').style.width = `${nitroPct}%`;
 
-  // Volta Atual
   const curLap = Math.min(appState.totalLaps, localPlayer.lapsCompleted || 1);
   document.getElementById('hud-lap-text').textContent = `${curLap}/${appState.totalLaps}`;
 
-  // Posição Atual (1º, 2º, 3º, 4º)
   const rank = localPlayer.liveRank || 1;
   document.getElementById('hud-rank-text').textContent = `${rank}º`;
 
-  // Item Armazenado
   const itemSlot = document.getElementById('hud-item-slot');
   if (localPlayer.item && itemIcons[localPlayer.item]) {
     const itemData = itemIcons[localPlayer.item];
@@ -345,15 +435,12 @@ function updateHUD(localPlayer, allPlayers) {
     document.getElementById('hud-item-label').textContent = 'SEM ITEM';
   }
 
-  // Minimapa de Progresso da Corrida
   updateMinimap(allPlayers);
 
-  // Áudio do motor dinâmico
-  const speedRatio = localPlayer.speed / 28;
+  const speedRatio = localPlayer.speed / 11;
   gameAudio.updateEnginePitch(speedRatio);
 }
 
-// Atualiza marcadores coloridos de cada carro no minimapa
 function updateMinimap(players) {
   const minimapTrack = document.getElementById('minimap-track-line');
   if (!minimapTrack) return;
@@ -375,7 +462,6 @@ function updateMinimap(players) {
   });
 }
 
-// Botão de Áudio Mute
 const btnAudioToggle = document.getElementById('btn-audio-toggle');
 btnAudioToggle.addEventListener('click', () => {
   const isMuted = gameAudio.toggleMute();
@@ -438,7 +524,6 @@ socket.on('race_starting', data => {
   appState.trackLength = data.trackLength;
   showScreen('game');
 
-  // Mostra overlay de contagem
   const countdownOverlay = document.getElementById('countdown-overlay');
   countdownOverlay.classList.add('active');
   document.getElementById('countdown-number').textContent = data.countdown;
@@ -495,15 +580,15 @@ socket.on('boost_hit', data => {
 socket.on('obstacle_hit', data => {
   if (data.playerId === appState.myId) {
     gameAudio.playOilSpin();
-    renderer.triggerShake(14);
-    renderer.addSpark(renderer.viewWidth / 2, renderer.viewHeight * 0.7, '#f97316', 20);
+    renderer.triggerShake(12);
+    renderer.addSpark(renderer.viewWidth / 2, renderer.viewHeight * 0.76, '#f97316', 16);
     renderer.addFloatingText(renderer.viewWidth / 2, renderer.viewHeight * 0.7, 'BATIDA!', '#ef4444');
   }
 });
 
 socket.on('car_bump', () => {
   gameAudio.playBump();
-  renderer.addSpark(renderer.viewWidth / 2, renderer.viewHeight * 0.7, '#facc15', 10);
+  renderer.addSpark(renderer.viewWidth / 2, renderer.viewHeight * 0.76, '#facc15', 8);
 });
 
 socket.on('item_activated', data => {
@@ -522,7 +607,7 @@ socket.on('item_activated', data => {
 socket.on('missile_exploded', data => {
   gameAudio.playExplosion();
   if (data.targetId === appState.myId) {
-    renderer.triggerShake(18);
+    renderer.triggerShake(16);
     renderer.addFloatingText(renderer.viewWidth / 2, renderer.viewHeight * 0.7, 'ATINGIDO POR MÍSSIL!', '#ef4444');
   }
 });
@@ -549,7 +634,7 @@ socket.on('player_finished', data => {
   }
 });
 
-// Fim de Partida e Pódio
+// Fim de Partida e Pódio com Estatísticas Detalhadas
 socket.on('race_game_over', data => {
   showScreen('podium');
   gameAudio.playVictory();
@@ -560,16 +645,33 @@ socket.on('race_game_over', data => {
   const trophyIcons = ['🥇', '🥈', '🥉', '🏁'];
   const rankClasses = ['gold', 'silver', 'bronze', 'fourth'];
 
+  // Encontra os dados do próprio jogador local
+  const myResult = data.podium.find(p => p.id === appState.myId);
+  if (myResult) {
+    savePersonalRaceStats(myResult, data.totalLaps);
+  }
+
   data.podium.forEach((player, index) => {
     const isMe = player.id === appState.myId;
     const card = document.createElement('div');
     card.className = `podium-card ${rankClasses[index] || ''} ${isMe ? 'is-me' : ''}`;
+    
+    const timeDisplay = player.time !== 'DNF' ? `${player.time}s` : 'DNF';
+    const crashesDisplay = player.crashes !== undefined ? player.crashes : 0;
+    const itemsDisplay = player.itemsUsed !== undefined ? player.itemsUsed : 0;
+    const speedDisplay = player.topSpeed ? `${player.topSpeed} KM/H` : '--';
+
     card.innerHTML = `
       <div class="podium-rank-icon">${trophyIcons[index] || `${index + 1}º`}</div>
-      <div class="podium-player-color" style="background: ${player.color}; box-shadow: 0 0 12px ${player.color}"></div>
+      <div class="podium-player-color" style="background: ${player.color}; box-shadow: 0 0 10px ${player.color}"></div>
       <div class="podium-player-info">
         <span class="podium-player-name">${player.name} ${isMe ? '<strong>(Você)</strong>' : ''} ${player.isBot ? '<small class="badge-bot">BOT</small>' : ''}</span>
-        <span class="podium-player-time">Tempo: ${player.time !== 'DNF' ? `${player.time}s` : 'DNF (Não terminou)'}</span>
+        <div class="podium-player-stats-row">
+          <span class="stat-pill"><i class="fas fa-clock"></i> Tempo: <strong>${timeDisplay}</strong></span>
+          <span class="stat-pill"><i class="fas fa-car-burst" style="color: #ef4444;"></i> Batidas: <strong>${crashesDisplay}</strong></span>
+          <span class="stat-pill"><i class="fas fa-box" style="color: #f59e0b;"></i> Itens: <strong>${itemsDisplay}</strong></span>
+          <span class="stat-pill"><i class="fas fa-bolt" style="color: #00f5d4;"></i> Vel. Máx: <strong>${speedDisplay}</strong></span>
+        </div>
       </div>
       <div class="podium-rank-badge">${index + 1}º Lugar</div>
     `;
@@ -577,7 +679,7 @@ socket.on('race_game_over', data => {
   });
 });
 
-// Botão Jogar Novamente
+// Ações do Pódio
 document.getElementById('btn-podium-rematch').addEventListener('click', () => {
   socket.emit('rematch_request');
 });
@@ -587,18 +689,17 @@ socket.on('returned_to_lobby', data => {
   updateLobbyUI(data.room);
 });
 
-// Botão Sair para o Menu
 document.getElementById('btn-podium-home').addEventListener('click', () => {
   window.location.href = window.location.pathname;
 });
 
-// Lista de salas públicas no menu
+// Salas Públicas
 socket.on('public_rooms_list', list => {
   const container = document.getElementById('public-rooms-container');
   if (!container) return;
 
   if (list.length === 0) {
-    container.innerHTML = '<p class="text-muted small text-center">Nenhuma outra sala pública aberta no momento. Crie a sua!</p>';
+    container.innerHTML = '<p class="text-muted small text-center" style="color: var(--text-muted); font-size: 0.8rem;">Nenhuma outra sala aberta no momento. Crie a sua!</p>';
     return;
   }
 
@@ -609,7 +710,7 @@ socket.on('public_rooms_list', list => {
     item.innerHTML = `
       <div>
         <strong>Sala ${r.code}</strong>
-        <span class="badge">${r.playersCount}/${r.maxPlayers} Jogadores</span>
+        <span class="badge" style="margin-left: 6px; font-size: 0.75rem; color: var(--primary-cyan);">${r.playersCount}/${r.maxPlayers} Jogadores</span>
       </div>
       <button class="btn btn-sm btn-outline-cyan" onclick="joinSpecificRoom('${r.code}')">Entrar</button>
     `;
@@ -625,3 +726,25 @@ window.joinSpecificRoom = function(code) {
     color: appState.color
   });
 };
+
+// =============================================================================
+// MODAL DE HISTÓRICO PESSOAL (LOCAL STORAGE)
+// =============================================================================
+const modalHistory = document.getElementById('modal-history');
+
+function openHistoryModal() {
+  renderPersonalHistoryModal();
+  modalHistory.style.display = 'flex';
+}
+
+function closeHistoryModal() {
+  modalHistory.style.display = 'none';
+}
+
+document.getElementById('btn-open-history').addEventListener('click', openHistoryModal);
+document.getElementById('btn-podium-view-history').addEventListener('click', openHistoryModal);
+document.getElementById('btn-close-history').addEventListener('click', closeHistoryModal);
+document.getElementById('btn-clear-history').addEventListener('click', clearPersonalHistory);
+modalHistory.addEventListener('click', e => {
+  if (e.target === modalHistory) closeHistoryModal();
+});
