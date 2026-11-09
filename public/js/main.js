@@ -3,13 +3,30 @@
 // Com análise estatística gráfica (Chart.js) para apresentação acadêmica
 // =============================================================================
 
-// Conexão dinâmica Socket.IO (funciona via Node direto na porta 3000 ou Apache WAMP)
-const socketUrl = window.location.port === '3000' 
-  ? window.location.origin 
-  : `${window.location.protocol}//${window.location.hostname}:3000`;
+// Conexão dinâmica inteligente do Socket.IO (funciona no Render.com, Cloud, Localhost direto ou Apache WAMP)
+function getSocketUrl() {
+  const hostname = window.location.hostname;
+  const isLocalhost = hostname === 'localhost' || 
+                      hostname === '127.0.0.1' || 
+                      hostname.startsWith('192.168.') || 
+                      hostname.startsWith('10.');
 
-const socket = io(socketUrl, {
-  transports: ['websocket', 'polling']
+  // Se estiver acessando localmente pelo WAMP Apache (porta 80 na pasta /inovatech/):
+  // Redireciona o socket para o servidor Node na porta 3000
+  if (isLocalhost && window.location.pathname.includes('/inovatech') && window.location.port !== '3000') {
+    return `${window.location.protocol}//${hostname}:3000`;
+  }
+
+  // Em qualquer outro ambiente (Render.com, produção na nuvem com HTTPS, ou localhost:3000 direto):
+  // Conecta na mesma origem (portas padrão 443/80 tratadas pelo proxy do Render)
+  return window.location.origin;
+}
+
+const socket = io(getSocketUrl(), {
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  reconnectionAttempts: 25,
+  reconnectionDelay: 1000
 });
 
 // Configuração estética global do Chart.js para tema Cyberpunk Neon
@@ -437,6 +454,10 @@ if (roomParam) {
 
 document.getElementById('btn-create-room').addEventListener('click', () => {
   gameAudio.ensureContext();
+  if (!socket.connected) {
+    alert('Conectando ao servidor... Por favor, aguarde alguns instantes e tente novamente!');
+    return;
+  }
   socket.emit('create_room', {
     nickname: appState.nickname,
     color: appState.color,
@@ -447,6 +468,10 @@ document.getElementById('btn-create-room').addEventListener('click', () => {
 
 document.getElementById('btn-join-room').addEventListener('click', () => {
   gameAudio.ensureContext();
+  if (!socket.connected) {
+    alert('Conectando ao servidor... Por favor, aguarde alguns instantes e tente novamente!');
+    return;
+  }
   const code = document.getElementById('input-room-code').value.trim();
   if (!code) {
     alert('Digite o código da sala!');
@@ -719,8 +744,20 @@ socket.on('connect', () => {
 });
 
 socket.on('disconnect', () => {
-  document.getElementById('server-status-pill').textContent = 'OFFLINE';
-  document.getElementById('server-status-pill').classList.remove('online');
+  const pill = document.getElementById('server-status-pill');
+  if (pill) {
+    pill.textContent = 'OFFLINE';
+    pill.classList.remove('online');
+  }
+});
+
+socket.on('connect_error', (err) => {
+  console.warn('Tentando reconectar ao Socket.IO:', err.message);
+  const pill = document.getElementById('server-status-pill');
+  if (pill) {
+    pill.textContent = 'CONECTANDO...';
+    pill.classList.remove('online');
+  }
 });
 
 socket.on('error_message', data => {

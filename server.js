@@ -6,6 +6,8 @@ const os = require('os');
 const QRCode = require('qrcode');
 
 const app = express();
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -15,6 +17,9 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Health check para serviços em nuvem (Render, Railway, etc.)
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
 // Servir arquivos estáticos da pasta public e da raiz
 app.use(express.static(path.join(__dirname, 'public')));
@@ -1123,7 +1128,7 @@ function emitPublicRooms() {
   io.emit('public_rooms_list', publicList);
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   const ips = getLocalIpAddresses();
   console.log('================================================================');
   console.log('🏁 INOVATECH TURBO DRIFT - SERVIDOR INICIADO COM SUCESSO! 🏁');
