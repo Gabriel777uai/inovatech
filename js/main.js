@@ -348,11 +348,26 @@ function renderHistoryCharts(history) {
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            position: 'bottom',
-            labels: { boxWidth: 10, font: { size: 10 } }
+            position: 'right',
+            labels: {
+              boxWidth: 10,
+              padding: 8,
+              font: { size: 10, weight: '600' },
+              color: '#cbd5e1'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const val = context.parsed;
+                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                return ` ${context.label}: ${val} (${pct}%)`;
+              }
+            }
           }
         },
-        cutout: '65%'
+        cutout: '62%'
       }
     });
   }
@@ -796,6 +811,9 @@ socket.on('room_settings_updated', data => {
 
 // Início da Corrida
 socket.on('race_starting', data => {
+  localPredictor.initialized = false;
+  localPredictor.tilt = 0;
+  rivalsState.clear();
   appState.totalLaps = data.totalLaps;
   appState.trackLength = data.trackLength;
   showScreen('game');
@@ -822,18 +840,144 @@ socket.on('countdown_tick', data => {
   }
 });
 
-// Loop principal de renderização a 60 FPS
+// =============================================================================
+// PREDIÇÃO DO JOGADOR LOCAL E INTERPOLAÇÃO DE RIVAIS A 60+ FPS
+// Permite curvas ultra fluidas, resposta instantânea de direção e zero engasgos
+// =============================================================================
 let currentTickData = null;
+let lastFrameTime = performance.now();
+
+const localPredictor = {
+  x: 0,
+  distance: 0,
+  speed: 0,
+  tilt: 0,
+  initialized: false
+};
+
+const rivalsState = new Map();
+
 socket.on('game_tick', data => {
   currentTickData = data;
-  const localPlayer = data.players.find(p => p.id === appState.myId);
-  updateHUD(localPlayer, data.players);
+  const serverLocal = data.players.find(p => p.id === appState.myId);
+
+  if (serverLocal) {
+    if (!localPredictor.initialized) {
+      localPredictor.x = serverLocal.x;
+      localPredictor.distance = serverLocal.distance;
+      localPredictor.speed = serverLocal.speed;
+      localPredictor.initialized = true;
+    } else {
+      // Reconciliação suave com o servidor (corrige desvios sem solavancos)
+      localPredictor.x += (serverLocal.x - localPredictor.x) * 0.35;
+      localPredictor.distance += (serverLocal.distance - localPredictor.distance) * 0.45;
+      localPredictor.speed = serverLocal.speed;
+    }
+  }
+
+  // Atualizar alvos de interpolação para os rivais
+  data.players.forEach(p => {
+    if (p.id !== appState.myId) {
+      let r = rivalsState.get(p.id);
+      if (!r) {
+        r = {
+          renderX: p.x,
+          renderDistance: p.distance,
+          targetX: p.x,
+          targetDistance: p.distance,
+          speed: p.speed,
+          tilt: 0,
+          steerDir: p.steerDir || 0
+        };
+        rivalsState.set(p.id, r);
+      } else {
+        r.targetX = p.x;
+        r.targetDistance = p.distance;
+        r.speed = p.speed;
+        r.steerDir = p.steerDir || 0;
+      }
+    }
+  });
+
+  updateHUD(serverLocal, data.players);
 });
 
-function gameLoopAnimation() {
+function gameLoopAnimation(currentTime) {
+  const dt = Math.min(0.05, Math.max(0.008, (currentTime - lastFrameTime) / 1000));
+  lastFrameTime = currentTime;
+
   if (screens.game.classList.contains('active') && currentTickData) {
-    renderer.render(currentTickData, appState.myId, appState.totalLaps, appState.trackLength);
+    const serverLocal = currentTickData.players.find(p => p.id === appState.myId);
+    const stepFactor = dt * 30; // base de referência normalizada para 30hz
+
+    // 1. Atualizar predição do jogador local imediatamente a 60 FPS
+    if (serverLocal && localPredictor.initialized) {
+      const isSpinning = serverLocal.spunTimer > 0;
+
+      if (!isSpinning && !serverLocal.finished) {
+        let steerTarget = 0;
+        if (appState.localInputs.left) {
+          localPredictor.x = Math.max(-175, localPredictor.x - 8.4 * stepFactor);
+          steerTarget = -0.24;
+        } else if (appState.localInputs.right) {
+          localPredictor.x = Math.min(175, localPredictor.x + 8.4 * stepFactor);
+          steerTarget = 0.24;
+        }
+
+        // Inclinação lateral esportiva (Banking) suave e responsiva
+        localPredictor.tilt += (steerTarget - localPredictor.tilt) * 0.25;
+      } else {
+        localPredictor.tilt = 0;
+      }
+
+      // Avanço longitudinal contínuo a 60 FPS
+      localPredictor.distance += localPredictor.speed * stepFactor;
+    }
+
+    // 2. Interpolar suavemente posições e inclinações dos rivais
+    currentTickData.players.forEach(p => {
+      if (p.id !== appState.myId) {
+        const r = rivalsState.get(p.id);
+        if (r) {
+          r.renderX += (r.targetX - r.renderX) * 0.32;
+          r.renderDistance += (r.targetDistance - r.renderDistance) * 0.38 + (r.speed * stepFactor * 0.62);
+          const targetTilt = (r.steerDir || 0) * 0.20;
+          r.tilt += (targetTilt - r.tilt) * 0.22;
+        }
+      }
+    });
+
+    // 3. Montar frame renderizado completo com dados interpolados
+    const smoothPlayers = currentTickData.players.map(p => {
+      if (p.id === appState.myId && localPredictor.initialized) {
+        return {
+          ...p,
+          x: localPredictor.x,
+          distance: localPredictor.distance,
+          tilt: localPredictor.tilt
+        };
+      } else {
+        const r = rivalsState.get(p.id);
+        if (r) {
+          return {
+            ...p,
+            x: r.renderX,
+            distance: r.renderDistance,
+            tilt: r.tilt
+          };
+        }
+        return p;
+      }
+    });
+
+    const interpolatedFrame = {
+      ...currentTickData,
+      players: smoothPlayers
+    };
+
+    renderer.render(interpolatedFrame, appState.myId, appState.totalLaps, appState.trackLength);
   }
+
   requestAnimationFrame(gameLoopAnimation);
 }
 requestAnimationFrame(gameLoopAnimation);
@@ -992,6 +1136,9 @@ document.getElementById('btn-podium-rematch').addEventListener('click', () => {
 });
 
 socket.on('returned_to_lobby', data => {
+  localPredictor.initialized = false;
+  localPredictor.tilt = 0;
+  rivalsState.clear();
   showScreen('lobby');
   updateLobbyUI(data.room);
 });

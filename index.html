@@ -364,7 +364,7 @@
       </div>
 
       <!-- Abas de Visualização no Modal -->
-      <div class="tab-nav" style="margin: 8px 0 12px 0;">
+      <div class="tab-nav" style="margin: 6px 0 10px 0;">
         <button class="tab-btn active" id="tab-btn-hist-charts">
           <i class="fas fa-chart-area"></i> Gráficos Estatísticos
         </button>
@@ -373,44 +373,46 @@
         </button>
       </div>
 
-      <!-- Conteúdo 1: Gráficos Estatísticos -->
-      <div id="hist-view-charts">
-        <div class="charts-row">
-          <!-- Gráfico de Linha: Evolução do Tempo -->
-          <div class="chart-box">
-            <div class="chart-title"><i class="fas fa-chart-line"></i> Evolução do Tempo por Corrida (s)</div>
-            <div style="position: relative; height: 180px; width: 100%;">
-              <canvas id="chartHistoryEvolution"></canvas>
+      <div class="modal-scroll-body">
+        <!-- Conteúdo 1: Gráficos Estatísticos -->
+        <div id="hist-view-charts">
+          <div class="charts-row">
+            <!-- Gráfico de Linha: Evolução do Tempo -->
+            <div class="chart-box">
+              <div class="chart-title"><i class="fas fa-chart-line"></i> Evolução do Tempo por Corrida (s)</div>
+              <div style="position: relative; height: 180px; width: 100%;">
+                <canvas id="chartHistoryEvolution"></canvas>
+              </div>
             </div>
-          </div>
-          <!-- Gráfico Donut: Distribuição de Posições -->
-          <div class="chart-box">
-            <div class="chart-title"><i class="fas fa-chart-pie"></i> Distribuição de Pódios</div>
-            <div style="position: relative; height: 180px; width: 100%;">
-              <canvas id="chartHistoryDistribution"></canvas>
+            <!-- Gráfico Donut: Distribuição de Posições -->
+            <div class="chart-box">
+              <div class="chart-title"><i class="fas fa-chart-pie"></i> Distribuição de Pódios</div>
+              <div class="donut-chart-wrapper">
+                <canvas id="chartHistoryDistribution"></canvas>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Conteúdo 2: Tabela de Corridas Recentes -->
-      <div id="hist-view-table" style="display: none;">
-        <div class="history-table-wrapper">
-          <table class="history-table">
-            <thead>
-              <tr>
-                <th>Hora</th>
-                <th>Posição</th>
-                <th>Tempo</th>
-                <th>Batidas</th>
-                <th>Itens</th>
-                <th>Vel. Máx</th>
-              </tr>
-            </thead>
-            <tbody id="history-table-body">
-              <!-- Preenchido via JavaScript -->
-            </tbody>
-          </table>
+        <!-- Conteúdo 2: Tabela de Corridas Recentes -->
+        <div id="hist-view-table" style="display: none;">
+          <div class="history-table-wrapper">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Posição</th>
+                  <th>Tempo</th>
+                  <th>Batidas</th>
+                  <th>Itens</th>
+                  <th>Vel. Máx</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body">
+                <!-- Preenchido via JavaScript -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

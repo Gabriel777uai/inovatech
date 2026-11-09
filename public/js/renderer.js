@@ -1,5 +1,6 @@
 // =============================================================================
-// INOVATECH TURBO DRIFT - RENDERIZADOR CANVAS 2D CIBERNÉTICO (60 FPS)
+// INOVATECH TURBO DRIFT - RENDERIZADOR CANVAS 2D CIBERNÉTICO (60/120 FPS FLUIDO)
+// Com curvas dinâmicas, inclinação dos carros (banking) e partículas de drift
 // =============================================================================
 
 class GameRenderer {
@@ -8,6 +9,7 @@ class GameRenderer {
     this.ctx = canvas.getContext('2d');
     this.particles = [];
     this.floatingTexts = [];
+    this.skidSparks = [];
     this.screenShake = 0;
     this.cubeRotation = 0;
     this.finishLineDistance = 0;
@@ -17,6 +19,7 @@ class GameRenderer {
     this.roadWidth = 420;
     this.viewWidth = 640;
     this.viewHeight = 720;
+    this.cameraPan = 0;
   }
 
   resize() {
@@ -36,12 +39,16 @@ class GameRenderer {
     this.viewWidth = w;
     this.viewHeight = h;
 
-    // Adapta largura da estrada dinamicamente para caber perfeitamente no celular ou desktop
     this.roadWidth = Math.min(460, Math.max(310, w * 0.92));
   }
 
   triggerShake(amount = 10) {
     this.screenShake = amount;
+  }
+
+  // Curvatura procedural contínua da rodovia estilo arcade
+  getCurveAt(dist) {
+    return Math.sin(dist * 0.0026) * 65 + Math.sin(dist * 0.0013) * 35;
   }
 
   addSpark(x, y, color = '#00f5d4', count = 10) {
@@ -55,6 +62,21 @@ class GameRenderer {
         size: Math.random() * 3 + 1.5,
         alpha: 1,
         decay: Math.random() * 0.03 + 0.02
+      });
+    }
+  }
+
+  addDriftSparks(x, y, color) {
+    for (let i = 0; i < 2; i++) {
+      this.skidSparks.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + 20,
+        vx: (Math.random() - 0.5) * 3,
+        vy: 2 + Math.random() * 3,
+        color: Math.random() > 0.4 ? color : '#ffffff',
+        size: Math.random() * 2.5 + 1,
+        alpha: 0.85,
+        decay: 0.05
       });
     }
   }
@@ -98,10 +120,16 @@ class GameRenderer {
 
     this.cubeRotation += 0.04;
 
-    // 1. Estrada Cibernética com Sincronização Perfeita à Distância Real
-    this.drawRoad(centerX, h, localDistance);
+    // Suavização do movimento de câmera nas curvas
+    const targetCameraPan = localPlayer ? -localPlayer.x * 0.12 : 0;
+    this.cameraPan += (targetCameraPan - this.cameraPan) * 0.1;
 
-    // 2. Linhas de Chegada e Checkpoints de Volta
+    ctx.translate(this.cameraPan, 0);
+
+    // 1. Estrada Cibernética com Curvas Fluidas em Tempo Real
+    this.drawRoadWithCurves(centerX, h, localDistance);
+
+    // 2. Linhas de Chegada e Checkpoints
     this.drawFinishLines(centerX, h, localDistance, trackLength, totalLaps);
 
     // 3. Entidades da Pista (Caixas de itens, pads de turbo, obstáculos)
@@ -114,67 +142,135 @@ class GameRenderer {
       this.drawHazards(centerX, h, localDistance, gameState.hazards);
     }
 
-    // 5. Todos os Veículos (Jogadores e Bots)
+    // 5. Todos os Veículos com Inclinação Dinâmica (Banking) e Drift
     this.drawPlayers(centerX, h, localPlayer, gameState.players);
 
-    // 6. Partículas e Textos
+    // 6. Faixas de Velocidade (Speed Lines) em alta aceleração ou nitro
+    if (localPlayer && (localPlayer.nitroActive || localSpeed > 9.5)) {
+      this.drawSpeedLines(w, h);
+    }
+
+    // 7. Partículas e Textos
+    this.drawSkidSparks();
     this.drawParticles();
     this.drawFloatingTexts();
 
     ctx.restore();
   }
 
-  // Desenho da rodovia neon sincronizada 100% com a distância do jogador
-  drawRoad(centerX, h, localDistance) {
+  // Desenho da rodovia neon com curvas dinâmicas contínuas
+  drawRoadWithCurves(centerX, h, localDistance) {
     const ctx = this.ctx;
     const halfRoad = this.roadWidth / 2;
+    const playerY = h * 0.76;
+    const baseCurve = this.getCurveAt(localDistance);
 
-    // Asfalto
+    // Renderiza a estrada em faixas horizontais conectadas para criar o traçado sinuoso
+    const step = 20;
+    const segments = Math.ceil(h / step) + 1;
+
+    // 1. Asfalto principal
     ctx.fillStyle = '#0b1324';
-    ctx.fillRect(centerX - halfRoad, 0, this.roadWidth, h);
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const y = i * step;
+      const distAtY = localDistance + (playerY - y) * this.distanceScale;
+      const curveOffset = this.getCurveAt(distAtY) - baseCurve;
+      const leftX = centerX - halfRoad + curveOffset;
+      if (i === 0) ctx.moveTo(leftX, y);
+      else ctx.lineTo(leftX, y);
+    }
+    for (let i = segments; i >= 0; i--) {
+      const y = i * step;
+      const distAtY = localDistance + (playerY - y) * this.distanceScale;
+      const curveOffset = this.getCurveAt(distAtY) - baseCurve;
+      const rightX = centerX + halfRoad + curveOffset;
+      ctx.lineTo(rightX, y);
+    }
+    ctx.closePath();
+    ctx.fill();
 
-    // Barreiras laterais neon
+    // 2. Barreiras laterais neon brilhantes
     ctx.save();
     ctx.lineWidth = 4;
     ctx.strokeStyle = '#00f5d4';
     ctx.shadowColor = '#00f5d4';
     ctx.shadowBlur = 10;
 
+    // Barreira Esquerda
     ctx.beginPath();
-    ctx.moveTo(centerX - halfRoad, 0);
-    ctx.lineTo(centerX - halfRoad, h);
-    ctx.moveTo(centerX + halfRoad, 0);
-    ctx.lineTo(centerX + halfRoad, h);
+    for (let i = 0; i <= segments; i++) {
+      const y = i * step;
+      const distAtY = localDistance + (playerY - y) * this.distanceScale;
+      const curveOffset = this.getCurveAt(distAtY) - baseCurve;
+      const leftX = centerX - halfRoad + curveOffset;
+      if (i === 0) ctx.moveTo(leftX, y);
+      else ctx.lineTo(leftX, y);
+    }
     ctx.stroke();
 
-    // Faixas zebradas externas com deslocamento 100% atrelado à física
-    const roadScrollY = (localDistance * this.distanceScale) % 50;
-    ctx.lineWidth = 6;
+    // Barreira Direita
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const y = i * step;
+      const distAtY = localDistance + (playerY - y) * this.distanceScale;
+      const curveOffset = this.getCurveAt(distAtY) - baseCurve;
+      const rightX = centerX + halfRoad + curveOffset;
+      if (i === 0) ctx.moveTo(rightX, y);
+      else ctx.lineTo(rightX, y);
+    }
+    ctx.stroke();
+
+    // 3. Zebrados externos
+    const roadScrollY = (localDistance * this.distanceScale) % 40;
+    ctx.lineWidth = 5;
     ctx.strokeStyle = 'rgba(236, 72, 153, 0.45)';
-    ctx.setLineDash([20, 15]);
+    ctx.setLineDash([18, 14]);
     ctx.lineDashOffset = -roadScrollY;
 
+    // Zebrado Esquerdo
     ctx.beginPath();
-    ctx.moveTo(centerX - halfRoad - 6, 0);
-    ctx.lineTo(centerX - halfRoad - 6, h);
-    ctx.moveTo(centerX + halfRoad + 6, 0);
-    ctx.lineTo(centerX + halfRoad + 6, h);
+    for (let i = 0; i <= segments; i++) {
+      const y = i * step;
+      const distAtY = localDistance + (playerY - y) * this.distanceScale;
+      const curveOffset = this.getCurveAt(distAtY) - baseCurve;
+      const leftX = centerX - halfRoad - 5 + curveOffset;
+      if (i === 0) ctx.moveTo(leftX, y);
+      else ctx.lineTo(leftX, y);
+    }
+    ctx.stroke();
+
+    // Zebrado Direito
+    ctx.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const y = i * step;
+      const distAtY = localDistance + (playerY - y) * this.distanceScale;
+      const curveOffset = this.getCurveAt(distAtY) - baseCurve;
+      const rightX = centerX + halfRoad + 5 + curveOffset;
+      if (i === 0) ctx.moveTo(rightX, y);
+      else ctx.lineTo(rightX, y);
+    }
     ctx.stroke();
     ctx.restore();
 
-    // 3 Linhas tracejadas que dividem as 4 faixas
-    // Divisores proporcionais à largura da estrada
+    // 4. Linhas divisórias das 4 faixas com curvas sincronizadas
     const divOffsets = [-this.roadWidth * 0.24, 0, this.roadWidth * 0.24];
     ctx.save();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
     ctx.lineWidth = 2.5;
-    ctx.setLineDash([24, 20]);
+    ctx.setLineDash([22, 18]);
     ctx.lineDashOffset = -roadScrollY;
 
-    divOffsets.forEach(offset => {
+    divOffsets.forEach(divOff => {
       ctx.beginPath();
-      ctx.moveTo(centerX + offset, 0);
-      ctx.lineTo(centerX + offset, h);
+      for (let i = 0; i <= segments; i++) {
+        const y = i * step;
+        const distAtY = localDistance + (playerY - y) * this.distanceScale;
+        const curveOffset = this.getCurveAt(distAtY) - baseCurve;
+        const x = centerX + divOff + curveOffset;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
       ctx.stroke();
     });
     ctx.restore();
@@ -184,6 +280,7 @@ class GameRenderer {
   drawFinishLines(centerX, h, localDist, trackLength, totalLaps) {
     const ctx = this.ctx;
     const playerY = h * 0.76;
+    const baseCurve = this.getCurveAt(localDist);
 
     for (let lap = 1; lap <= totalLaps; lap++) {
       const lapDist = lap * trackLength;
@@ -193,12 +290,14 @@ class GameRenderer {
         ctx.save();
         const halfRoad = this.roadWidth / 2;
         const isFinal = lap === totalLaps;
+        const curveOffset = this.getCurveAt(lapDist) - baseCurve;
+        const roadMidX = centerX + curveOffset;
 
         const blockW = 20;
         const numBlocks = Math.ceil(this.roadWidth / blockW);
         for (let i = 0; i < numBlocks; i++) {
           ctx.fillStyle = (i % 2 === 0) ? '#ffffff' : (isFinal ? '#ef4444' : '#10b981');
-          ctx.fillRect(centerX - halfRoad + i * blockW, screenY - 10, blockW, 20);
+          ctx.fillRect(roadMidX - halfRoad + i * blockW, screenY - 10, blockW, 20);
         }
 
         ctx.font = 'bold 15px "Montserrat", sans-serif';
@@ -208,7 +307,7 @@ class GameRenderer {
         ctx.shadowBlur = 6;
         ctx.fillText(
           isFinal ? '🏁 LINHA DE CHEGADA 🏁' : `VOLTA ${lap} / ${totalLaps}`,
-          centerX,
+          roadMidX,
           screenY - 16
         );
         ctx.restore();
@@ -219,12 +318,14 @@ class GameRenderer {
   // Entidades da pista
   drawTrackEntities(centerX, h, localDist, entities) {
     const playerY = h * 0.76;
+    const baseCurve = this.getCurveAt(localDist);
 
     entities.forEach(ent => {
       const screenY = playerY - (ent.distance - localDist) * this.distanceScale;
       if (screenY < -80 || screenY > h + 80) return;
 
-      const screenX = centerX + ent.x;
+      const curveOffset = this.getCurveAt(ent.distance) - baseCurve;
+      const screenX = centerX + ent.x + curveOffset;
 
       if (ent.type === 'item_box') {
         this.drawItemBox(screenX, screenY);
@@ -299,7 +400,7 @@ class GameRenderer {
     ctx.restore();
   }
 
-  // Obstáculos da pista com alinhamento visual preciso
+  // Obstáculos da pista
   drawObstacle(x, y, subType) {
     const ctx = this.ctx;
     ctx.save();
@@ -367,12 +468,14 @@ class GameRenderer {
   drawHazards(centerX, h, localDist, hazards) {
     const ctx = this.ctx;
     const playerY = h * 0.76;
+    const baseCurve = this.getCurveAt(localDist);
 
     hazards.forEach(hazard => {
       const screenY = playerY - (hazard.distance - localDist) * this.distanceScale;
       if (screenY < -80 || screenY > h + 80) return;
 
-      const screenX = centerX + hazard.x;
+      const curveOffset = this.getCurveAt(hazard.distance) - baseCurve;
+      const screenX = centerX + hazard.x + curveOffset;
 
       if (hazard.type === 'oil') {
         ctx.save();
@@ -415,10 +518,11 @@ class GameRenderer {
     });
   }
 
-  // Desenha todos os competidores
+  // Desenha todos os competidores com inclinação de curva (Tilt/Banking)
   drawPlayers(centerX, h, localPlayer, allPlayers) {
     const playerY = h * 0.76;
     const localDist = localPlayer ? localPlayer.distance : 0;
+    const baseCurve = this.getCurveAt(localDist);
 
     const sorted = [...allPlayers].sort((a, b) => b.distance - a.distance);
 
@@ -426,25 +530,34 @@ class GameRenderer {
       const isLocal = localPlayer && player.id === localPlayer.id;
       const screenY = isLocal ? playerY : playerY - (player.distance - localDist) * this.distanceScale;
 
+      const curveOffset = this.getCurveAt(player.distance) - baseCurve;
+      const screenX = centerX + player.x + curveOffset;
+
       if (screenY < -40 || screenY > h + 60) {
         if (!isLocal) {
-          this.drawOffscreenIndicator(centerX + player.x, screenY < 0 ? 25 : h - 25, player, screenY < 0);
+          this.drawOffscreenIndicator(screenX, screenY < 0 ? 25 : h - 25, player, screenY < 0);
         }
         return;
       }
 
-      const screenX = centerX + player.x;
-      this.drawVehicle(screenX, screenY, player, isLocal);
+      // Ângulo de inclinação do carro na curva
+      const tiltAngle = player.tilt || (player.steerDir ? player.steerDir * 0.18 : 0);
+
+      if (Math.abs(tiltAngle) > 0.08 && player.speed > 3) {
+        this.addDriftSparks(screenX, screenY, player.color);
+      }
+
+      this.drawVehicle(screenX, screenY, player, isLocal, tiltAngle);
     });
   }
 
-  // Veículo Neon
-  drawVehicle(x, y, player, isLocal) {
+  // Veículo Neon com inclinação esportiva (Banking)
+  drawVehicle(x, y, player, isLocal, tiltAngle = 0) {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(x, y);
 
-    // Pisca semitransparente se estiver no período de invulnerabilidade pós-batida
+    // Pisca semitransparente se estiver invulnerável
     if (player.invulnerableTimer > 0) {
       ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 40) * 0.35;
     }
@@ -452,6 +565,9 @@ class GameRenderer {
     if (player.spunTimer > 0) {
       const angle = (player.spunTimer * 0.5) % (Math.PI * 2);
       ctx.rotate(angle);
+    } else {
+      // Inclina o carro naturalmente na direção da curva (efeito profissional)
+      ctx.rotate(tiltAngle);
     }
 
     // Efeito de Vácuo (Slipstream)
@@ -474,7 +590,7 @@ class GameRenderer {
       ctx.shadowColor = '#00f5d4';
       ctx.shadowBlur = 16;
       ctx.fillStyle = '#00f5d4';
-      const flameLen = 18 + Math.random() * 12;
+      const flameLen = 18 + Math.random() * 14;
 
       ctx.beginPath();
       ctx.moveTo(-8, 24);
@@ -496,7 +612,7 @@ class GameRenderer {
     ctx.shadowColor = player.color;
     ctx.shadowBlur = 14;
 
-    // Rodas
+    // Rodas (4 pneus estilizados)
     const wheelW = 5;
     const wheelH = 12;
     ctx.fillStyle = '#020617';
@@ -512,7 +628,7 @@ class GameRenderer {
     ctx.fillRect(15, 8, wheelW, wheelH);
     ctx.strokeRect(15, 8, wheelW, wheelH);
 
-    // Chassi
+    // Chassi aerodinâmico
     ctx.fillStyle = '#0a0f1d';
     ctx.strokeStyle = player.color;
     ctx.lineWidth = 2.5;
@@ -606,7 +722,7 @@ class GameRenderer {
     const rankText = player.liveRank ? `${player.liveRank}º ` : '';
     const label = `${rankText}${player.name}${isLocal ? ' (VOCÊ)' : ''}`;
 
-    ctx.fillStyle = 'rgba(6, 10, 18, 0.8)';
+    ctx.fillStyle = 'rgba(6, 10, 18, 0.82)';
     const textMetrics = ctx.measureText(label);
     ctx.fillRect(x - textMetrics.width / 2 - 5, y - 38, textMetrics.width + 10, 16);
 
@@ -614,6 +730,30 @@ class GameRenderer {
     ctx.shadowColor = player.color;
     ctx.shadowBlur = 4;
     ctx.fillText(label, x, y - 26);
+    ctx.restore();
+  }
+
+  // Linhas de velocidade nas bordas da tela (Warp effect)
+  drawSpeedLines(w, h) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 245, 212, 0.25)';
+    ctx.lineWidth = 2;
+
+    for (let i = 0; i < 6; i++) {
+      const leftY = Math.random() * h;
+      const len = 30 + Math.random() * 50;
+      ctx.beginPath();
+      ctx.moveTo(10 + Math.random() * 25, leftY);
+      ctx.lineTo(10 + Math.random() * 25, leftY + len);
+      ctx.stroke();
+
+      const rightY = Math.random() * h;
+      ctx.beginPath();
+      ctx.moveTo(w - 10 - Math.random() * 25, rightY);
+      ctx.lineTo(w - 10 - Math.random() * 25, rightY + len);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -645,6 +785,31 @@ class GameRenderer {
     ctx.fillText(player.name.substring(0, 6), 0, isAhead ? 16 : -12);
 
     ctx.restore();
+  }
+
+  drawSkidSparks() {
+    const ctx = this.ctx;
+    for (let i = this.skidSparks.length - 1; i >= 0; i--) {
+      const s = this.skidSparks[i];
+      s.x += s.vx;
+      s.y += s.vy;
+      s.alpha -= s.decay;
+
+      if (s.alpha <= 0) {
+        this.skidSparks.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = s.alpha;
+      ctx.fillStyle = s.color;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   drawParticles() {

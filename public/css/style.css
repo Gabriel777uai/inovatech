@@ -4,9 +4,9 @@
 
 :root {
   --bg-dark: #050811;
-  --bg-card: rgba(13, 22, 38, 0.85);
+  --bg-card: rgba(13, 22, 38, 0.88);
   --bg-card-hover: rgba(20, 32, 54, 0.95);
-  --border-neon: rgba(0, 245, 212, 0.25);
+  --border-neon: rgba(0, 245, 212, 0.28);
   --primary-cyan: #00f5d4;
   --primary-glow: rgba(0, 245, 212, 0.4);
   --neon-magenta: #ec4899;
@@ -68,7 +68,7 @@ body {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border-neon);
-  background: rgba(5, 8, 17, 0.9);
+  background: rgba(5, 8, 17, 0.92);
   backdrop-filter: blur(10px);
   z-index: 10;
 }
@@ -152,7 +152,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 14px;
+  padding: 12px;
   position: relative;
 }
 
@@ -492,7 +492,7 @@ body {
   width: 100%;
   max-width: 860px;
   padding: 0;
-  height: calc(100vh - 70px);
+  height: calc(100vh - 66px);
   display: none;
   flex-direction: column;
   position: relative;
@@ -592,7 +592,7 @@ body {
   border-radius: 50%;
   border: 2px solid #ffffff;
   transform: translateX(-50%);
-  transition: left 0.1s linear;
+  transition: left 0.08s linear;
 }
 
 .minimap-dot.is-local {
@@ -709,13 +709,13 @@ body {
 }
 
 .touch-btn {
-  width: 54px;
-  height: 54px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background: rgba(13, 22, 38, 0.7);
+  background: rgba(13, 22, 38, 0.75);
   border: 2px solid var(--border-neon);
   color: #ffffff;
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -782,7 +782,7 @@ body {
   display: flex;
   justify-content: center;
   gap: 10px;
-  margin: 12px 0 16px 0;
+  margin: 10px 0 14px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 8px;
 }
@@ -922,12 +922,14 @@ body {
 
 /* Container do Gráfico do Pódio */
 .chart-box {
-  background: rgba(10, 16, 28, 0.7);
+  background: rgba(10, 16, 28, 0.75);
   border: 1px solid var(--border-neon);
   border-radius: 10px;
   padding: 14px;
   margin: 10px 0;
   position: relative;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .chart-title {
@@ -943,12 +945,36 @@ body {
 
 /* =============================================================================
    MODAL DE HISTÓRICO PESSOAL & GRÁFICOS ESTATÍSTICOS
+   Com layout robusto e protegido contra quebra de layout no gráfico de pizza
    ============================================================================= */
+#modal-history .cyber-card {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 18px 22px;
+}
+
+.modal-scroll-body {
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.modal-scroll-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-scroll-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 212, 0.3);
+  border-radius: 3px;
+}
+
 .history-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  margin: 14px 0;
+  margin: 10px 0 14px 0;
 }
 
 @media (max-width: 600px) {
@@ -979,25 +1005,43 @@ body {
   margin-top: 2px;
 }
 
+/* Linha de Gráficos do Histórico */
 .charts-row {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 14px;
-  margin-top: 10px;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+  min-width: 0;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 720px) {
   .charts-row {
     grid-template-columns: 1fr;
   }
 }
 
+/* Wrapper seguro para o gráfico Donut / Pizza sem estourar o card */
+.donut-chart-wrapper {
+  position: relative;
+  height: 190px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.donut-chart-wrapper canvas {
+  max-width: 100% !important;
+  max-height: 180px !important;
+}
+
 .history-table-wrapper {
-  max-height: 230px;
+  max-height: 240px;
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .history-table {
@@ -1008,13 +1052,14 @@ body {
 }
 
 .history-table th {
-  background: rgba(5, 8, 17, 0.9);
+  background: rgba(5, 8, 17, 0.95);
   padding: 8px 10px;
   color: var(--primary-cyan);
   font-weight: 700;
   position: sticky;
   top: 0;
   border-bottom: 1px solid var(--border-neon);
+  z-index: 2;
 }
 
 .history-table td {
