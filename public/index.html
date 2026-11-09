@@ -35,7 +35,7 @@
     </div>
     <div class="header-actions">
       <span class="status-pill online" id="server-status-pill">ONLINE</span>
-      <button class="btn-icon" id="btn-open-history" title="Meu Histórico Pessoal" aria-label="Histórico">
+      <button class="btn-icon" id="btn-open-history" title="Meu Histórico e Gráficos" aria-label="Histórico">
         <i class="fas fa-chart-line"></i>
       </button>
       <button class="btn-icon" id="btn-audio-toggle" title="Ligar/Desligar Som" aria-label="Som">
@@ -283,12 +283,31 @@
     <section class="screen" id="screen-podium">
       <div class="cyber-card podium-container">
         <h2 class="podium-title">🏆 PÓDIO DOS CAMPEÕES 🏆</h2>
-        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px;">
-          Estatísticas oficiais da corrida registradas pelo sistema
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 8px;">
+          Estatísticas e análise gráfica oficial da corrida
         </p>
 
-        <div class="podium-list" id="podium-results-list">
-          <!-- Preenchido dinamicamente com os 4 colocados e estatísticas de batidas/tempo -->
+        <!-- Abas do Pódio: Classificação ou Gráfico Comparativo -->
+        <div class="tab-nav">
+          <button class="tab-btn active" id="tab-btn-podium-list">
+            <i class="fas fa-list-ol"></i> Classificação & Cartões
+          </button>
+          <button class="tab-btn" id="tab-btn-podium-chart">
+            <i class="fas fa-chart-column"></i> Gráficos Comparativos
+          </button>
+        </div>
+
+        <!-- Conteúdo 1: Lista de Cartões do Pódio -->
+        <div id="podium-view-list" class="podium-list">
+          <!-- Preenchido dinamicamente com os 4 colocados -->
+        </div>
+
+        <!-- Conteúdo 2: Gráfico Comparativo entre os 4 Pilotos -->
+        <div id="podium-view-chart" class="chart-box" style="display: none;">
+          <div class="chart-title"><i class="fas fa-chart-bar"></i> Comparativo de Desempenho dos Competidores</div>
+          <div style="position: relative; height: 240px; width: 100%;">
+            <canvas id="podiumComparisonChart"></canvas>
+          </div>
         </div>
 
         <div class="podium-actions">
@@ -296,7 +315,7 @@
             <i class="fas fa-rotate-right"></i> Jogar Novamente
           </button>
           <button class="btn btn-outline-amber" id="btn-podium-view-history" style="flex: 1;">
-            <i class="fas fa-chart-line"></i> Meu Histórico
+            <i class="fas fa-chart-line"></i> Histórico & Gráficos
           </button>
           <button class="btn btn-outline-cyan" id="btn-podium-home" style="flex: 0.8;">
             <i class="fas fa-house"></i> Menu
@@ -308,17 +327,17 @@
   </main>
 
   <!-- =====================================================================
-       MODAL 1: HISTÓRICO PESSOAL DE CORRIDAS (SALVO NO DISPOSITIVO)
+       MODAL 1: HISTÓRICO PESSOAL & GRÁFICOS ESTATÍSTICOS
        ===================================================================== -->
   <div id="modal-history" style="display: none; position: fixed; inset: 0; background: rgba(5,8,17,0.85); backdrop-filter: blur(10px); z-index: 100; justify-content: center; align-items: center; padding: 16px;">
-    <div class="cyber-card" style="max-width: 640px; width: 100%;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border-neon); padding-bottom: 10px;">
+    <div class="cyber-card" style="max-width: 680px; width: 100%;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid var(--border-neon); padding-bottom: 8px;">
         <div>
           <h3 style="color: var(--primary-cyan); font-family: var(--font-title); font-size: 1.15rem;">
-            <i class="fas fa-chart-pie"></i> Meu Histórico Pessoal
+            <i class="fas fa-chart-pie"></i> Painel Estatístico Pessoal
           </h3>
           <span style="font-size: 0.72rem; color: var(--text-muted);">
-            Somente você tem acesso a esses dados salvos no seu aparelho (localStorage)
+            Métricas de desempenho e gráficos salvos localmente no seu dispositivo
           </span>
         </div>
         <button id="btn-close-history" class="btn-icon"><i class="fas fa-xmark"></i></button>
@@ -344,29 +363,58 @@
         </div>
       </div>
 
-      <!-- Tabela com as últimas corridas -->
-      <h4 style="font-size: 0.85rem; color: #ffffff; margin-top: 14px; margin-bottom: 6px;">
-        <i class="fas fa-clock-rotate-left"></i> Últimas Corridas Registradas:
-      </h4>
-      <div class="history-table-wrapper">
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Hora</th>
-              <th>Posição</th>
-              <th>Tempo</th>
-              <th>Batidas</th>
-              <th>Itens</th>
-              <th>Vel. Máx</th>
-            </tr>
-          </thead>
-          <tbody id="history-table-body">
-            <!-- Linhas geradas dinamicamente -->
-          </tbody>
-        </table>
+      <!-- Abas de Visualização no Modal -->
+      <div class="tab-nav" style="margin: 8px 0 12px 0;">
+        <button class="tab-btn active" id="tab-btn-hist-charts">
+          <i class="fas fa-chart-area"></i> Gráficos Estatísticos
+        </button>
+        <button class="tab-btn" id="tab-btn-hist-table">
+          <i class="fas fa-table-list"></i> Tabela Detalhada
+        </button>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+      <!-- Conteúdo 1: Gráficos Estatísticos -->
+      <div id="hist-view-charts">
+        <div class="charts-row">
+          <!-- Gráfico de Linha: Evolução do Tempo -->
+          <div class="chart-box">
+            <div class="chart-title"><i class="fas fa-chart-line"></i> Evolução do Tempo por Corrida (s)</div>
+            <div style="position: relative; height: 180px; width: 100%;">
+              <canvas id="chartHistoryEvolution"></canvas>
+            </div>
+          </div>
+          <!-- Gráfico Donut: Distribuição de Posições -->
+          <div class="chart-box">
+            <div class="chart-title"><i class="fas fa-chart-pie"></i> Distribuição de Pódios</div>
+            <div style="position: relative; height: 180px; width: 100%;">
+              <canvas id="chartHistoryDistribution"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo 2: Tabela de Corridas Recentes -->
+      <div id="hist-view-table" style="display: none;">
+        <div class="history-table-wrapper">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Posição</th>
+                <th>Tempo</th>
+                <th>Batidas</th>
+                <th>Itens</th>
+                <th>Vel. Máx</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <!-- Preenchido via JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
         <button class="btn btn-sm btn-outline-cyan" id="btn-clear-history" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">
           <i class="fas fa-trash-can"></i> Limpar Meu Histórico
         </button>
@@ -413,6 +461,8 @@
       document.write('<script src="/socket.io/socket.io.js"><\/script>');
     }
   </script>
+  <!-- Chart.js para visualização gráfica das estatísticas -->
+  <script src="js/chart.umd.min.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/main.js"></script>

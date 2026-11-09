@@ -1,8 +1,9 @@
 // =============================================================================
 // INOVATECH TURBO DRIFT - CLIENTE SOCKET.IO E CONTROLADOR PRINCIPAL
+// Com análise estatística gráfica (Chart.js) para apresentação acadêmica
 // =============================================================================
 
-// Conexão dinâmica Socket.IO (detecta se executado via Node direto ou Apache WAMP)
+// Conexão dinâmica Socket.IO (funciona via Node direto na porta 3000 ou Apache WAMP)
 const socketUrl = window.location.port === '3000' 
   ? window.location.origin 
   : `${window.location.protocol}//${window.location.hostname}:3000`;
@@ -10,6 +11,22 @@ const socketUrl = window.location.port === '3000'
 const socket = io(socketUrl, {
   transports: ['websocket', 'polling']
 });
+
+// Configuração estética global do Chart.js para tema Cyberpunk Neon
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.borderColor = 'rgba(0, 245, 212, 0.12)';
+  Chart.defaults.font.family = "'Rubik', sans-serif";
+  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(6, 10, 18, 0.95)';
+  Chart.defaults.plugins.tooltip.borderColor = '#00f5d4';
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+}
+
+// Instâncias globais de gráficos para destruição/atualização segura
+let podiumChartInstance = null;
+let historyEvolutionChartInstance = null;
+let historyDistributionChartInstance = null;
+let lastPodiumData = null;
 
 // Elementos da interface
 const screens = {
@@ -32,7 +49,7 @@ const appState = {
   localInputs: {
     left: false,
     right: false,
-    up: true, // Aceleração suave estilo arcade
+    up: true,
     down: false,
     nitro: false,
     useItem: false
@@ -104,14 +121,234 @@ function savePersonalRaceStats(myResult, totalLaps) {
 
   history.recentRaces.unshift(entry);
   if (history.recentRaces.length > 20) {
-    history.recentRaces = history.recentRaces.slice(0, 20); // Mantém as últimas 20 corridas
+    history.recentRaces = history.recentRaces.slice(0, 20);
   }
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 }
 
+// Inserir dados de demonstração para a banca/professores na feira
+function loadSampleDataForDemo() {
+  const sample = {
+    totalRaces: 8,
+    wins: 3,
+    podiums: 6,
+    bestTime: 31.8,
+    totalCrashes: 12,
+    recentRaces: [
+      { id: '1', timeLabel: '14:10', rank: 1, time: '31.8', crashes: 1, itemsUsed: 4, topSpeed: 215, laps: 3 },
+      { id: '2', timeLabel: '14:02', rank: 2, time: '33.2', crashes: 2, itemsUsed: 3, topSpeed: 198, laps: 3 },
+      { id: '3', timeLabel: '13:50', rank: 1, time: '32.1', crashes: 0, itemsUsed: 5, topSpeed: 218, laps: 3 },
+      { id: '4', timeLabel: '13:38', rank: 3, time: '36.4', crashes: 3, itemsUsed: 2, topSpeed: 185, laps: 3 },
+      { id: '5', timeLabel: '13:25', rank: 1, time: '32.5', crashes: 1, itemsUsed: 4, topSpeed: 212, laps: 3 },
+      { id: '6', timeLabel: '13:12', rank: 2, time: '34.9', crashes: 2, itemsUsed: 3, topSpeed: 192, laps: 3 },
+      { id: '7', timeLabel: '12:55', rank: 4, time: '39.8', crashes: 4, itemsUsed: 1, topSpeed: 175, laps: 3 }
+    ]
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(sample));
+  renderPersonalHistoryModal();
+}
+
+// =============================================================================
+// RENDERIZADOR DE GRÁFICOS (CHART.JS)
+// =============================================================================
+
+// 1. Gráfico Comparativo entre os 4 Pilotos da Corrida Atual (Pódio)
+function renderPodiumComparisonChart(podiumList) {
+  if (!podiumList || typeof Chart === 'undefined') return;
+  const ctx = document.getElementById('podiumComparisonChart');
+  if (!ctx) return;
+
+  if (podiumChartInstance) {
+    podiumChartInstance.destroy();
+  }
+
+  const labels = podiumList.map(p => p.name + (p.isBot ? ' [BOT]' : ''));
+  const times = podiumList.map(p => p.time !== 'DNF' ? parseFloat(p.time) : 0);
+  const crashes = podiumList.map(p => p.crashes || 0);
+  const items = podiumList.map(p => p.itemsUsed || 0);
+  const topSpeeds = podiumList.map(p => p.topSpeed || 0);
+
+  podiumChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Tempo de Corrida (s)',
+          data: times,
+          backgroundColor: 'rgba(0, 245, 212, 0.75)',
+          borderColor: '#00f5d4',
+          borderWidth: 1.5,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Batidas (Colisões)',
+          data: crashes,
+          backgroundColor: 'rgba(239, 68, 68, 0.75)',
+          borderColor: '#ef4444',
+          borderWidth: 1.5,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Itens Usados',
+          data: items,
+          backgroundColor: 'rgba(245, 158, 11, 0.75)',
+          borderColor: '#f59e0b',
+          borderWidth: 1.5,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Vel. Máxima (KM/H)',
+          data: topSpeeds,
+          backgroundColor: 'rgba(168, 85, 247, 0.75)',
+          borderColor: '#a855f7',
+          borderWidth: 1.5,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { boxWidth: 12, font: { size: 11 } }
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Tempo (s) / Qtd', font: { size: 10 } },
+          grid: { color: 'rgba(0, 245, 212, 0.08)' }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: { display: true, text: 'Velocidade (KM/H)', font: { size: 10 } },
+          grid: { drawOnChartArea: false }
+        },
+        x: {
+          grid: { color: 'rgba(255, 255, 255, 0.05)' }
+        }
+      }
+    }
+  });
+}
+
+// 2. Gráficos do Histórico Pessoal (Linha de Evolução e Rosca de Pódios)
+function renderHistoryCharts(history) {
+  if (typeof Chart === 'undefined') return;
+
+  // A. Gráfico de Evolução Temporal do Tempo de Volta
+  const evolutionCtx = document.getElementById('chartHistoryEvolution');
+  if (evolutionCtx) {
+    if (historyEvolutionChartInstance) historyEvolutionChartInstance.destroy();
+
+    const chronological = [...history.recentRaces].reverse();
+    const raceLabels = chronological.map((r, idx) => `#${idx + 1} (${r.timeLabel})`);
+    const raceTimes = chronological.map(r => r.time !== 'DNF' ? parseFloat(r.time) : null);
+
+    historyEvolutionChartInstance = new Chart(evolutionCtx, {
+      type: 'line',
+      data: {
+        labels: raceLabels.length > 0 ? raceLabels : ['Nenhuma corrida'],
+        datasets: [
+          {
+            label: 'Tempo da Corrida (s)',
+            data: raceTimes.length > 0 ? raceTimes : [0],
+            borderColor: '#00f5d4',
+            backgroundColor: 'rgba(0, 245, 212, 0.15)',
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: '#00f5d4',
+            pointBorderColor: '#ffffff',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            title: { display: true, text: 'Segundos (s)', font: { size: 10 } },
+            grid: { color: 'rgba(0, 245, 212, 0.08)' }
+          },
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { font: { size: 9 } }
+          }
+        }
+      }
+    });
+  }
+
+  // B. Gráfico Donut de Distribuição de Posições
+  const distributionCtx = document.getElementById('chartHistoryDistribution');
+  if (distributionCtx) {
+    if (historyDistributionChartInstance) historyDistributionChartInstance.destroy();
+
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    history.recentRaces.forEach(r => {
+      if (r.rank === 1) pos1++;
+      else if (r.rank === 2) pos2++;
+      else if (r.rank === 3) pos3++;
+      else pos4++;
+    });
+
+    const hasData = history.recentRaces.length > 0;
+
+    historyDistributionChartInstance = new Chart(distributionCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['1º Lugar', '2º Lugar', '3º Lugar', '4º Lugar'],
+        datasets: [
+          {
+            data: hasData ? [pos1, pos2, pos3, pos4] : [0, 0, 0, 1],
+            backgroundColor: [
+              '#facc15', // Ouro
+              '#cbd5e1', // Prata
+              '#f97316', // Bronze
+              '#64748b'  // Cinza
+            ],
+            borderColor: '#0a101c',
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 10, font: { size: 10 } }
+          }
+        },
+        cutout: '65%'
+      }
+    });
+  }
+}
+
 function renderPersonalHistoryModal() {
-  const history = getPersonalHistory();
+  let history = getPersonalHistory();
+
+  // Se não tiver corridas gravadas ainda, inicializa com demonstração para a apresentação
+  if (history.totalRaces === 0) {
+    loadSampleDataForDemo();
+    history = getPersonalHistory();
+  }
 
   document.getElementById('hist-total-races').textContent = history.totalRaces;
   const winRate = history.totalRaces > 0 ? Math.round((history.wins / history.totalRaces) * 100) : 0;
@@ -124,25 +361,27 @@ function renderPersonalHistoryModal() {
   tbody.innerHTML = '';
 
   if (history.recentRaces.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="padding: 16px; color: var(--text-muted);">Nenhuma corrida registrada ainda neste aparelho. Complete uma corrida para salvar!</td></tr>';
-    return;
+    tbody.innerHTML = '<tr><td colspan="6" style="padding: 14px; color: var(--text-muted);">Nenhuma corrida registrada ainda neste aparelho.</td></tr>';
+  } else {
+    history.recentRaces.forEach(r => {
+      const row = document.createElement('tr');
+      const rankClass = r.rank === 1 ? 'rank-badge-1' : (r.rank === 2 ? 'rank-badge-2' : (r.rank === 3 ? 'rank-badge-3' : 'rank-badge-4'));
+      const trophy = r.rank === 1 ? '🥇 ' : (r.rank === 2 ? '🥈 ' : (r.rank === 3 ? '🥉 ' : '🏁 '));
+
+      row.innerHTML = `
+        <td>${r.timeLabel}</td>
+        <td class="${rankClass}">${trophy}${r.rank}º</td>
+        <td><strong>${r.time !== 'DNF' ? `${r.time}s` : 'DNF'}</strong></td>
+        <td><span style="color: ${r.crashes > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">${r.crashes}</span></td>
+        <td>${r.itemsUsed}</td>
+        <td>${r.topSpeed} KM/H</td>
+      `;
+      tbody.appendChild(row);
+    });
   }
 
-  history.recentRaces.forEach(r => {
-    const row = document.createElement('tr');
-    const rankClass = r.rank === 1 ? 'rank-badge-1' : (r.rank === 2 ? 'rank-badge-2' : (r.rank === 3 ? 'rank-badge-3' : 'rank-badge-4'));
-    const trophy = r.rank === 1 ? '🥇 ' : (r.rank === 2 ? '🥈 ' : (r.rank === 3 ? '🥉 ' : '🏁 '));
-
-    row.innerHTML = `
-      <td>${r.timeLabel}</td>
-      <td class="${rankClass}">${trophy}${r.rank}º</td>
-      <td><strong>${r.time !== 'DNF' ? `${r.time}s` : 'DNF'}</strong></td>
-      <td><span style="color: ${r.crashes > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">${r.crashes}</span></td>
-      <td>${r.itemsUsed}</td>
-      <td>${r.topSpeed} KM/H</td>
-    `;
-    tbody.appendChild(row);
-  });
+  // Renderizar gráficos estatísticos do histórico
+  renderHistoryCharts(history);
 }
 
 function clearPersonalHistory() {
@@ -634,23 +873,25 @@ socket.on('player_finished', data => {
   }
 });
 
-// Fim de Partida e Pódio com Estatísticas Detalhadas
+// Fim de Partida e Pódio com Estatísticas Detalhadas e Gráficos
 socket.on('race_game_over', data => {
   showScreen('podium');
   gameAudio.playVictory();
+  lastPodiumData = data.podium;
 
-  const podiumList = document.getElementById('podium-results-list');
+  const podiumList = document.getElementById('podium-view-list');
   podiumList.innerHTML = '';
 
   const trophyIcons = ['🥇', '🥈', '🥉', '🏁'];
   const rankClasses = ['gold', 'silver', 'bronze', 'fourth'];
 
-  // Encontra os dados do próprio jogador local
+  // Salva no histórico pessoal privado do navegador
   const myResult = data.podium.find(p => p.id === appState.myId);
   if (myResult) {
     savePersonalRaceStats(myResult, data.totalLaps);
   }
 
+  // Preenche cartões do pódio
   data.podium.forEach((player, index) => {
     const isMe = player.id === appState.myId;
     const card = document.createElement('div');
@@ -677,6 +918,35 @@ socket.on('race_game_over', data => {
     `;
     podiumList.appendChild(card);
   });
+
+  // Renderizar gráfico comparativo da corrida
+  renderPodiumComparisonChart(data.podium);
+
+  // Redefinir para a aba de lista por padrão
+  document.getElementById('tab-btn-podium-list').click();
+});
+
+// Alternância de Abas na Tela do Pódio
+const btnTabPodiumList = document.getElementById('tab-btn-podium-list');
+const btnTabPodiumChart = document.getElementById('tab-btn-podium-chart');
+const viewPodiumList = document.getElementById('podium-view-list');
+const viewPodiumChart = document.getElementById('podium-view-chart');
+
+btnTabPodiumList.addEventListener('click', () => {
+  btnTabPodiumList.classList.add('active');
+  btnTabPodiumChart.classList.remove('active');
+  viewPodiumList.style.display = 'flex';
+  viewPodiumChart.style.display = 'none';
+});
+
+btnTabPodiumChart.addEventListener('click', () => {
+  btnTabPodiumChart.classList.add('active');
+  btnTabPodiumList.classList.remove('active');
+  viewPodiumList.style.display = 'none';
+  viewPodiumChart.style.display = 'block';
+  if (lastPodiumData) {
+    renderPodiumComparisonChart(lastPodiumData);
+  }
 });
 
 // Ações do Pódio
@@ -728,13 +998,33 @@ window.joinSpecificRoom = function(code) {
 };
 
 // =============================================================================
-// MODAL DE HISTÓRICO PESSOAL (LOCAL STORAGE)
+// MODAL DE HISTÓRICO PESSOAL & ABAS DE GRÁFICOS
 // =============================================================================
 const modalHistory = document.getElementById('modal-history');
+const btnTabHistCharts = document.getElementById('tab-btn-hist-charts');
+const btnTabHistTable = document.getElementById('tab-btn-hist-table');
+const viewHistCharts = document.getElementById('hist-view-charts');
+const viewHistTable = document.getElementById('hist-view-table');
+
+btnTabHistCharts.addEventListener('click', () => {
+  btnTabHistCharts.classList.add('active');
+  btnTabHistTable.classList.remove('active');
+  viewHistCharts.style.display = 'block';
+  viewHistTable.style.display = 'none';
+  renderHistoryCharts(getPersonalHistory());
+});
+
+btnTabHistTable.addEventListener('click', () => {
+  btnTabHistTable.classList.add('active');
+  btnTabHistCharts.classList.remove('active');
+  viewHistCharts.style.display = 'none';
+  viewHistTable.style.display = 'block';
+});
 
 function openHistoryModal() {
   renderPersonalHistoryModal();
   modalHistory.style.display = 'flex';
+  btnTabHistCharts.click();
 }
 
 function closeHistoryModal() {

@@ -1,76 +1,71 @@
 # 🏎️ INOVATECH TURBO DRIFT (Arcade Multiplayer 2026)
 
-Minigame Arcade retrofuturista desenvolvido especialmente para apresentação na **Feira de Inovação Tecnológica da Faculdade**.
+Minigame Arcade retrofuturista desenvolvido para apresentação na **Feira de Inovação Tecnológica da Faculdade**.
 
-Utiliza **Node.js**, **Express**, **Socket.IO** e **HTML5 Canvas 2D** para criar uma experiência multiplayer em tempo real, onde de **1 até 4 jogadores** podem disputar corridas na mesma sala, conectando pelo computador ou diretamente pelo **celular** (através de QR Code).
+Utiliza **Node.js**, **Express**, **Socket.IO**, **HTML5 Canvas 2D** e **Chart.js** para criar uma experiência multiplayer em tempo real, onde de **1 até 4 jogadores** disputam corridas na mesma sala, conectando pelo computador ou celular (via QR Code). Inclui **painel de métricas estatísticas e gráficos analíticos interativos**.
 
 ---
 
-## 🌟 Principais Destaques para a Feira
+## 📊 Módulo Acadêmico de Estatísticas e Análise Gráfica (Chart.js)
 
-- 👥 **Multiplayer em Tempo Real (Socket.IO)**: Suporta até **4 jogadores simultâneos por sala**.
-- 📱 **Conecte com Celulares via QR Code**: Ao criar uma sala, um QR Code exclusivo é gerado na tela. Qualquer visitante da feira pode apontar a câmera do celular para entrar na corrida em segundos!
+Para complementar a matéria da faculdade (Ciência de Dados / Estatística / Engenharia de Software), o jogo inclui **análises gráficas em tempo real**:
+
+1. **Gráfico Comparativo da Partida (Tela do Pódio)**:
+   - Gráfico de **Barras Múltiplas com Eixo Y Duplo**:
+     - Compara lado a lado os competidores daquela corrida específica em:
+       - ⏱️ **Tempo de Corrida** (s)
+       - 💥 **Número de Batidas / Colisões**
+       - 🎁 **Quantidade de Itens Usados**
+       - ⚡ **Velocidade Máxima** (KM/H)
+     - Permite avaliar visualmente se uma maior quantidade de batidas impactou o tempo final de cada piloto.
+
+2. **Gráfico de Evolução Temporal (Curva de Aprendizado)**:
+   - Gráfico de **Linha com Gradiente Neon**:
+     - Mostra a progressão do tempo de volta do piloto ao longo das corridas disputadas no dispositivo (`recentRaces`).
+     - Demonstra a redução de tempo e ganho de habilidade à medida que o jogador pratica.
+
+3. **Gráfico de Distribuição de Pódios (Gráfico Donut / Rosca)**:
+   - Exibe a proporção percentual de:
+     - 🥇 1º Lugar (Ouro)
+     - 🥈 2º Lugar (Prata)
+     - 🥉 3º Lugar (Bronze)
+     - 🏁 4º Lugar
+   - Permite o cálculo visual imediato da taxa de vitórias (*Win Rate*).
+
+4. **Armazenamento Privado e Rápido**:
+   - Salvo em `localStorage` no próprio aparelho: **apenas aquele jogador vê as suas estatísticas pessoais**, sem risco de vazamento de dados ou lentidão na rede da feira.
+
+---
+
+## 🌟 Principais Recursos do Jogo
+
+- 👥 **Multiplayer em Tempo Real (Socket.IO)**: Até 4 jogadores por sala.
+- 📱 **Conecte com Celulares via QR Code**: Aponte a câmera do celular para a tela da sala e entre na hora.
 - 🎮 **Controles Responsivos**:
-  - **No Computador / Notebook**: Teclas `W/A/S/D` ou Setas, `Espaço` para Usar Item e `Shift` para Turbo.
-  - **No Smartphone / Tablet**: Gamepad Touch virtual na tela (Direcionais, Turbo, Item e Freio).
-- 🎁 **Itens Especiais Inspirados em Clássicos (Mario Kart / Crash Team Racing)**:
-  - ⚡ **Turbo Nitro**: Explosão de velocidade com chamas de escape ciano.
-  - 🛡️ **Escudo Cibernético**: Bolha de força que bloqueia 1 colisão ou ataque rival.
-  - 🛢️ **Mancha de Óleo Glitch**: Armadilha solta na pista que faz o carro de trás rodar 360°!
-  - ⚡ **Pulso EMP**: Onda de choque eletromagnética que desacelera todos os rivais próximos.
-  - 🚀 **Míssil Teleguiado**: Foguete de precisão que persegue o piloto que estiver à sua frente.
-- 💨 **Efeito Vácuo (Slipstream / Drafting)**: Ficar alinhado logo atrás de um adversário gera um impulso aerodinâmico para ultrapassá-lo!
-- 🤖 **Bots de IA Inteligentes**: Se apenas 1 ou 2 pessoas entrarem na sala, o sistema pode preencher automaticamente as vagas restantes com Bots de Inteligência Artificial para garantir sempre um grid cheio e eletrizante com 4 competidores!
-- 🎵 **Áudio Sintetizado em Tempo Real (Web Audio API)**: Motor que varia o som conforme a aceleração, sirenes, batidas, explosões e fanfarra de vitória sem depender de arquivos externos.
-- 🏆 **Pódio dos Campeões**: Telas com classificação final (1º, 2º, 3º e 4º lugares), tempos de volta e botão de revanche rápida.
+  - **No Computador / Notebook**: `W/A/S/D` ou `Setas`, `Espaço` para Usar Item e `Shift` para Turbo.
+  - **No Celular / Tablet**: Gamepad Touch virtual na tela (Direcionais, Turbo, Item e Freio).
+- 🎁 **Itens Especiais Inspirados em Clássicos (Mario Kart)**:
+  - ⚡ **Turbo Nitro**: Disparo de velocidade com rastro de chamas ciano.
+  - 🛡️ **Escudo Cibernético**: Bloqueia 1 impacto sem perder velocidade.
+  - 🛢️ **Mancha de Óleo Glitch**: Armadilha que faz o carro de trás rodar 360°!
+  - ⚡ **Pulso EMP**: Onda eletromagnética que reduz a velocidade dos rivais próximos.
+  - 🚀 **Míssil Teleguiado**: Persegue o piloto à sua frente.
+- 💨 **Efeito Vácuo (Slipstream)**: Ganho aerodinâmico ao colar na traseira do rival para ultrapassá-lo.
+- 🤖 **Bots de IA Inteligentes**: Preenchimento automático para sempre ter 4 carros na pista.
+- 🎵 **Áudio Procedural em Tempo Real (Web Audio API)**: Sons de motor que aceleram em sintonia com o veículo.
 
 ---
 
-## 🚀 Como Iniciar o Jogo
+## 🚀 Como Iniciar
 
-### Modo 1: Início Rápido (1 Clique no Windows)
-Basta dar um duplo clique no arquivo:
-```
+### Modo 1: Duplo Clique (Windows)
+```cmd
 iniciar_jogo.bat
 ```
-Ele iniciará o servidor Socket.IO e abrirá automaticamente o navegador em `http://localhost:3000`.
+Abre o servidor Socket.IO e o navegador em `http://localhost:3000`.
 
----
-
-### Modo 2: Via Terminal (Node.js)
-1. Abra o terminal na pasta do projeto:
-```bash
-cd c:\wamp64\www\inovatech
-```
-2. Inicie o servidor:
+### Modo 2: Via Terminal
 ```bash
 npm start
-# ou
-node server.js
 ```
-3. O terminal exibirá os links de acesso local e na rede Wi-Fi:
-```
-📡 Localhost:     http://localhost:3000
-📱 Rede Wi-Fi/IP: http://10.1.1.133:3000
-```
-
----
-
-## 📲 Como Jogar com Várias Pessoas na Feira
-
-1. Conecte o computador da apresentação e os celulares dos visitantes na **mesma rede Wi-Fi**.
-2. No computador principal, crie uma sala.
-3. Peça para os outros participantes:
-   - **Opção A**: Apontar a câmera do celular para o **QR Code** exibido na tela da sala.
-   - **Opção B**: Acessar o endereço de IP exibido no terminal (ex: `http://10.1.1.133:3000`) e digitar o código de 4 letras da sala (ex: `TECH`).
-4. Cada jogador escolhe seu nickname e a cor do seu carro neon.
-5. O anfitrião clica em **"INICIAR CORRIDA"** e a disputa começa!
-
----
-
-## 🛠️ Tecnologias Utilizadas
-
-- **Backend**: Node.js, Express, Socket.IO, qrcode
-- **Frontend**: HTML5 Canvas 2D, JavaScript (ES6+), CSS3 (Flexbox/Grid/Glassmorphism)
-- **Áudio**: Web Audio API (Sintetizador Procedural nativo)
-- **Design**: Cyberpunk Neon Retrofuturista
+Conecte celulares ou outros notebooks na mesma rede Wi-Fi usando o IP exibido no terminal (ex: `http://10.1.1.133:3000`).

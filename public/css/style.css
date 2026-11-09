@@ -4,8 +4,8 @@
 
 :root {
   --bg-dark: #050811;
-  --bg-card: rgba(13, 22, 38, 0.8);
-  --bg-card-hover: rgba(20, 32, 54, 0.9);
+  --bg-card: rgba(13, 22, 38, 0.85);
+  --bg-card-hover: rgba(20, 32, 54, 0.95);
   --border-neon: rgba(0, 245, 212, 0.25);
   --primary-cyan: #00f5d4;
   --primary-glow: rgba(0, 245, 212, 0.4);
@@ -774,14 +774,51 @@ body {
   font-weight: 800;
   color: #facc15;
   text-shadow: 0 0 16px rgba(250, 204, 21, 0.5);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+}
+
+/* Abas de Navegação (Pódio e Histórico) */
+.tab-nav {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 0 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-btn:hover {
+  color: #ffffff;
+  border-color: var(--primary-cyan);
+}
+
+.tab-btn.active {
+  background: rgba(0, 245, 212, 0.15);
+  color: var(--primary-cyan);
+  border-color: var(--primary-cyan);
+  box-shadow: 0 0 10px var(--primary-glow);
 }
 
 .podium-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin: 18px 0;
+  margin: 10px 0;
 }
 
 .podium-card {
@@ -839,10 +876,9 @@ body {
   font-weight: 700;
 }
 
-/* Badges de estatísticas individuais do jogador */
 .podium-player-stats-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   font-size: 0.75rem;
   color: var(--text-muted);
   margin-top: 4px;
@@ -884,14 +920,35 @@ body {
   flex-wrap: wrap;
 }
 
+/* Container do Gráfico do Pódio */
+.chart-box {
+  background: rgba(10, 16, 28, 0.7);
+  border: 1px solid var(--border-neon);
+  border-radius: 10px;
+  padding: 14px;
+  margin: 10px 0;
+  position: relative;
+}
+
+.chart-title {
+  font-size: 0.85rem;
+  color: var(--primary-cyan);
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* =============================================================================
-   MODAL DE HISTÓRICO PESSOAL (LOCAL STORAGE)
+   MODAL DE HISTÓRICO PESSOAL & GRÁFICOS ESTATÍSTICOS
    ============================================================================= */
 .history-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  margin: 16px 0;
+  margin: 14px 0;
 }
 
 @media (max-width: 600px) {
@@ -910,7 +967,7 @@ body {
 
 .history-card-value {
   font-family: var(--font-title);
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--primary-cyan);
 }
@@ -922,8 +979,21 @@ body {
   margin-top: 2px;
 }
 
+.charts-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+@media (max-width: 680px) {
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .history-table-wrapper {
-  max-height: 240px;
+  max-height: 230px;
   overflow-y: auto;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
