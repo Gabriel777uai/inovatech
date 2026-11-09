@@ -1,0 +1,912 @@
+/* =============================================================================
+   INOVATECH TURBO DRIFT - ESTILIZAÇÃO RETROFUTURISTA CIBERNÉTICA
+   ============================================================================= */
+
+:root {
+  --bg-dark: #050811;
+  --bg-card: rgba(13, 22, 38, 0.75);
+  --bg-card-hover: rgba(20, 32, 54, 0.85);
+  --border-neon: rgba(0, 245, 212, 0.25);
+  --primary-cyan: #00f5d4;
+  --primary-glow: rgba(0, 245, 212, 0.4);
+  --neon-magenta: #ec4899;
+  --neon-purple: #a855f7;
+  --neon-amber: #f59e0b;
+  --neon-red: #ef4444;
+  --neon-blue: #38bdf8;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --font-title: 'Montserrat', sans-serif;
+  --font-body: 'Rubik', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fundo com Grade Holográfica Animada */
+.grid-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background-image: 
+    linear-gradient(rgba(0, 245, 212, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 212, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center;
+  animation: gridScroll 4s linear infinite;
+}
+
+@keyframes gridScroll {
+  from { background-position-y: 0px; }
+  to { background-position-y: 40px; }
+}
+
+/* =============================================================================
+   CABEÇALHO SUPERIOR
+   ============================================================================= */
+.app-header {
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-neon);
+  background: rgba(5, 8, 17, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.brand-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  font-size: 24px;
+  color: var(--primary-cyan);
+  filter: drop-shadow(0 0 8px var(--primary-cyan));
+}
+
+.brand-title {
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #ffffff, var(--primary-cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-badge {
+  font-size: 0.65rem;
+  background: rgba(0, 245, 212, 0.15);
+  border: 1px solid var(--primary-cyan);
+  color: var(--primary-cyan);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-pill {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.status-pill.online {
+  border-color: #10b981;
+  color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.btn-icon {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-main);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: rgba(0, 245, 212, 0.2);
+  border-color: var(--primary-cyan);
+  color: var(--primary-cyan);
+}
+
+/* =============================================================================
+   CONTAINER DE TELAS SPA
+   ============================================================================= */
+.screen-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  position: relative;
+}
+
+.screen {
+  display: none;
+  width: 100%;
+  max-width: 960px;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.screen.active {
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards de Interface */
+.cyber-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border-neon);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 245, 212, 0.08);
+}
+
+/* =============================================================================
+   TELA INICIAL (MENU / CONFIG DO JOGADOR)
+   ============================================================================= */
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hero-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.hero-title {
+  font-family: var(--font-title);
+  font-size: 2.2rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #ffffff;
+  text-shadow: 0 0 15px var(--primary-glow);
+}
+
+.hero-subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-top: 6px;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary-cyan);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cyber-input {
+  width: 100%;
+  background: rgba(5, 8, 17, 0.7);
+  border: 1px solid var(--border-neon);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 1rem;
+  color: #ffffff;
+  font-family: var(--font-body);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.cyber-input:focus {
+  border-color: var(--primary-cyan);
+  box-shadow: 0 0 14px var(--primary-glow);
+}
+
+/* Seletor de Cores do Carro */
+.color-picker-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.color-option {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+}
+
+.color-option.selected {
+  border-color: #ffffff;
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.6);
+  transform: scale(1.15);
+}
+
+.color-option.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffffff;
+  font-weight: bold;
+}
+
+/* Botões Estilizados */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.25s ease;
+  width: 100%;
+}
+
+.btn-cyan {
+  background: linear-gradient(135deg, #00f5d4, #00b4d8);
+  color: #050811;
+  box-shadow: 0 4px 18px rgba(0, 245, 212, 0.35);
+}
+
+.btn-cyan:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 245, 212, 0.55);
+}
+
+.btn-outline-cyan {
+  background: transparent;
+  border: 1px solid var(--primary-cyan);
+  color: var(--primary-cyan);
+}
+
+.btn-outline-cyan:hover {
+  background: rgba(0, 245, 212, 0.15);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.btn-magenta {
+  background: linear-gradient(135deg, #ec4899, #d946ef);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(236, 72, 153, 0.35);
+}
+
+.btn-magenta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(236, 72, 153, 0.55);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  width: auto;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 18px 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.divider:not(:empty)::before {
+  margin-right: 12px;
+}
+
+.divider:not(:empty)::after {
+  margin-left: 12px;
+}
+
+/* =============================================================================
+   TELA DE LOBBY (SALA DE ESPERA MULTIPLAYER)
+   ============================================================================= */
+.lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-neon);
+  margin-bottom: 20px;
+}
+
+.room-code-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.room-code-badge h2 {
+  font-family: var(--font-title);
+  font-size: 2rem;
+  letter-spacing: 4px;
+  color: var(--primary-cyan);
+  text-shadow: 0 0 14px var(--primary-glow);
+}
+
+.lobby-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .lobby-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Slots de Jogadores (Até 4) */
+.players-slots-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.player-slot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(10, 16, 28, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s;
+}
+
+.player-slot.filled {
+  border-color: rgba(0, 245, 212, 0.3);
+  background: rgba(14, 23, 40, 0.8);
+}
+
+.player-color-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+}
+
+.player-empty-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.player-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.player-role {
+  font-size: 0.75rem;
+  color: var(--primary-cyan);
+}
+
+/* Caixa de Compartilhamento / QR Code */
+.qr-share-box {
+  background: rgba(10, 16, 28, 0.7);
+  border: 1px solid var(--border-neon);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.qr-image-container {
+  background: #0a0e17;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--primary-cyan);
+  box-shadow: 0 0 14px var(--primary-glow);
+}
+
+.qr-image-container img {
+  display: block;
+  max-width: 140px;
+  height: auto;
+}
+
+.share-link-input-group {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+
+.share-link-input-group input {
+  font-size: 0.8rem;
+  padding: 8px 10px;
+}
+
+/* =============================================================================
+   TELA DO JOGO (ARENA CANVAS + HUD + CONTROLES)
+   ============================================================================= */
+#screen-game {
+  width: 100%;
+  max-width: 860px;
+  padding: 0;
+  height: calc(100vh - 75px);
+  display: none;
+  flex-direction: column;
+  position: relative;
+}
+
+#screen-game.active {
+  display: flex;
+}
+
+.game-arena-wrapper {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: #060a12;
+  border-radius: 12px;
+  border: 1px solid var(--border-neon);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+}
+
+#gameCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* HUD Superior e Minimapa */
+.hud-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 5;
+}
+
+.hud-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hud-badge {
+  background: rgba(6, 10, 18, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-neon);
+  border-radius: 8px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.hud-rank {
+  font-size: 1.3rem;
+  color: var(--neon-amber);
+  text-shadow: 0 0 10px var(--neon-amber);
+}
+
+.hud-speedometer {
+  font-family: var(--font-title);
+  color: var(--primary-cyan);
+}
+
+/* Minimapa de Progresso */
+.minimap-bar-container {
+  background: rgba(6, 10, 18, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.minimap-icon {
+  font-size: 0.8rem;
+  color: var(--primary-cyan);
+}
+
+.minimap-track-line {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.minimap-dot {
+  position: absolute;
+  top: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  transform: translateX(-50%);
+  transition: left 0.1s linear;
+}
+
+.minimap-dot.is-local {
+  width: 18px;
+  height: 18px;
+  top: -6px;
+  border: 2px solid #facc15;
+}
+
+/* HUD Inferior (Item Box + Nitro) */
+.hud-bottom-overlay {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.hud-item-box {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background: rgba(6, 10, 18, 0.85);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  transition: all 0.3s;
+}
+
+.hud-item-box.has-item {
+  border: 2px solid var(--neon-amber);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.5);
+  animation: itemBounce 0.4s ease;
+}
+
+@keyframes itemBounce {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.hud-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-nitro-bar-container {
+  width: 140px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--primary-cyan);
+}
+
+.hud-nitro-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #00f5d4, #38bdf8);
+  box-shadow: 0 0 10px var(--primary-cyan);
+  transition: width 0.1s linear;
+}
+
+/* Overlay de Contagem Regressiva */
+.countdown-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background: rgba(5, 8, 17, 0.6);
+  z-index: 20;
+}
+
+.countdown-overlay.active {
+  display: flex;
+}
+
+.countdown-num {
+  font-family: var(--font-title);
+  font-size: 7rem;
+  font-weight: 900;
+  color: var(--primary-cyan);
+  text-shadow: 0 0 30px var(--primary-glow);
+}
+
+.countdown-num.pulse {
+  animation: countPulse 0.8s ease;
+}
+
+.countdown-num.go {
+  font-size: 8rem;
+  color: #10b981;
+  text-shadow: 0 0 40px #10b981;
+}
+
+@keyframes countPulse {
+  0% { transform: scale(1.6); opacity: 0; }
+  40% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+/* =============================================================================
+   CONTROLES TOUCH PARA DISPOSITIVOS MÓVEIS (CELULARES)
+   ============================================================================= */
+.mobile-controls {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.mobile-dpad, .mobile-actions {
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(13, 22, 38, 0.7);
+  border: 2px solid var(--border-neon);
+  color: #ffffff;
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+  transition: all 0.1s;
+}
+
+.touch-btn:active, .touch-btn.active {
+  background: var(--primary-cyan);
+  color: #050811;
+  transform: scale(0.92);
+  box-shadow: 0 0 18px var(--primary-cyan);
+}
+
+.touch-btn-item {
+  width: 68px;
+  height: 68px;
+  border-color: var(--neon-amber);
+  color: var(--neon-amber);
+}
+
+.touch-btn-item:active, .touch-btn-item.active {
+  background: var(--neon-amber);
+  color: #050811;
+  box-shadow: 0 0 20px var(--neon-amber);
+}
+
+/* Desktop: Teclas de atalho hint */
+.desktop-controls-hint {
+  text-align: center;
+  padding: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.key-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: bold;
+  color: var(--primary-cyan);
+  margin: 0 2px;
+}
+
+/* =============================================================================
+   TELA DE PÓDIO (FIM DE JOGO)
+   ============================================================================= */
+.podium-container {
+  text-align: center;
+}
+
+.podium-title {
+  font-family: var(--font-title);
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #facc15;
+  text-shadow: 0 0 20px rgba(250, 204, 21, 0.5);
+  margin-bottom: 20px;
+}
+
+.podium-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.podium-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  background: rgba(10, 16, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s;
+}
+
+.podium-card.gold {
+  border-color: #facc15;
+  background: rgba(250, 204, 21, 0.12);
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.2);
+}
+
+.podium-card.silver {
+  border-color: #cbd5e1;
+  background: rgba(203, 213, 225, 0.08);
+}
+
+.podium-card.bronze {
+  border-color: #f97316;
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.podium-card.is-me {
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+.podium-rank-icon {
+  font-size: 2rem;
+  width: 44px;
+  text-align: center;
+}
+
+.podium-player-color {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+}
+
+.podium-player-info {
+  flex: 1;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+
+.podium-player-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.podium-player-time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.badge-bot {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  margin-left: 6px;
+}
+
+.podium-rank-badge {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--primary-cyan);
+}
+
+.podium-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 20px;
+}

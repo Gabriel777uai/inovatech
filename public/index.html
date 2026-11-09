@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>INOVATECH TURBO DRIFT | Arcade Multiplayer 2026</title>
+  
+  <!-- Favicon / Ícone -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏎️</text></svg>">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Estilos Customizados -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Grade Cibernética de Fundo -->
+  <div class="grid-background"></div>
+
+  <!-- Cabeçalho Principal -->
+  <header class="app-header">
+    <div class="brand-container">
+      <i class="fas fa-gamepad brand-logo"></i>
+      <div>
+        <h1 class="brand-title">INOVATECH <span style="color: var(--neon-magenta);">DRIFT</span></h1>
+        <span class="brand-badge">FEIRA DE TECNOLOGIA 2026</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="status-pill online" id="server-status-pill">ONLINE</span>
+      <button class="btn-icon" id="btn-audio-toggle" title="Ligar/Desligar Som" aria-label="Som">
+        <i class="fas fa-volume-high"></i>
+      </button>
+      <button class="btn-icon" id="btn-open-help" title="Como Jogar" aria-label="Ajuda">
+        <i class="fas fa-circle-question"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Container de Telas SPA -->
+  <main class="screen-container">
+
+    <!-- =====================================================================
+         TELA 1: MENU PRINCIPAL / INICIAL
+         ===================================================================== -->
+    <section class="screen active" id="screen-home">
+      <div class="hero-header">
+        <h2 class="hero-title">🏁 Batalha de Velocidade 🏁</h2>
+        <p class="hero-subtitle">Minigame Multiplayer de 1 a 4 Jogadores com Socket.IO</p>
+      </div>
+
+      <div class="menu-grid">
+        <!-- Coluna 1: Perfil do Jogador -->
+        <div class="cyber-card">
+          <div class="form-group">
+            <label class="form-label" for="input-nickname"><i class="fas fa-user-astronaut"></i> Seu Nickname</label>
+            <input type="text" id="input-nickname" class="cyber-input" maxlength="15" placeholder="Ex: Piloto-Cyber" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-palette"></i> Cor do Veículo Neon</label>
+            <div class="color-picker-grid">
+              <div class="color-option selected" data-color="#00f5d4" style="background: #00f5d4;"></div>
+              <div class="color-option" data-color="#10b981" style="background: #10b981;"></div>
+              <div class="color-option" data-color="#ec4899" style="background: #ec4899;"></div>
+              <div class="color-option" data-color="#f59e0b" style="background: #f59e0b;"></div>
+              <div class="color-option" data-color="#3b82f6" style="background: #3b82f6;"></div>
+              <div class="color-option" data-color="#a855f7" style="background: #a855f7;"></div>
+            </div>
+          </div>
+
+          <button class="btn btn-cyan" id="btn-create-room" style="margin-top: 10px;">
+            <i class="fas fa-plus-circle"></i> Criar Nova Sala
+          </button>
+        </div>
+
+        <!-- Coluna 2: Entrar em Sala Existente -->
+        <div class="cyber-card">
+          <div class="form-group">
+            <label class="form-label" for="input-room-code"><i class="fas fa-key"></i> Código da Sala (4 letras)</label>
+            <input type="text" id="input-room-code" class="cyber-input" maxlength="4" placeholder="Ex: TECH" style="text-transform: uppercase; font-weight: bold; letter-spacing: 2px;" />
+          </div>
+
+          <button class="btn btn-outline-cyan" id="btn-join-room">
+            <i class="fas fa-right-to-bracket"></i> Entrar na Sala
+          </button>
+
+          <div class="divider">ou salas públicas abertas</div>
+
+          <div id="public-rooms-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 140px; overflow-y: auto;">
+            <p class="text-muted small text-center" style="font-size: 0.8rem; color: var(--text-muted);">
+              Procurando salas abertas na rede...
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         TELA 2: LOBBY DA SALA DE ESPERA (MULTIPLAYER 1-4 JOGADORES)
+         ===================================================================== -->
+    <section class="screen" id="screen-lobby">
+      <div class="cyber-card">
+        <div class="lobby-header">
+          <div class="room-code-badge">
+            <i class="fas fa-satellite-dish" style="color: var(--primary-cyan); font-size: 1.8rem;"></i>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Código da Sala:</span>
+              <h2 id="display-room-code">----</h2>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline-cyan" id="btn-leave-lobby">
+            <i class="fas fa-door-open"></i> Sair da Sala
+          </button>
+        </div>
+
+        <div class="lobby-grid">
+          <!-- Coluna Jogadores Conectados -->
+          <div>
+            <h3 style="font-size: 1rem; margin-bottom: 12px; color: var(--primary-cyan);">
+              <i class="fas fa-users"></i> Jogadores Conectados (Até 4)
+            </h3>
+            <div class="players-slots-list" id="lobby-players-list">
+              <!-- Preenchido via JavaScript -->
+            </div>
+
+            <!-- Painel de Configurações do Anfitrião -->
+            <div id="host-controls-panel" style="margin-top: 20px; padding: 14px; background: rgba(5, 8, 17, 0.6); border-radius: 8px; border: 1px solid var(--border-neon);">
+              <h4 style="font-size: 0.85rem; color: var(--neon-amber); margin-bottom: 10px;">
+                <i class="fas fa-sliders"></i> Opções da Partida (Anfitrião)
+              </h4>
+              <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                <div>
+                  <label style="font-size: 0.8rem; color: var(--text-muted);">Voltas:</label>
+                  <select id="select-laps" class="cyber-input" style="padding: 4px 8px; font-size: 0.85rem; width: auto; margin-left: 6px;">
+                    <option value="1">1 Volta (Rápida)</option>
+                    <option value="2">2 Voltas</option>
+                    <option value="3" selected>3 Voltas (Padrão)</option>
+                    <option value="5">5 Voltas (Desafio)</option>
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <input type="checkbox" id="checkbox-fill-bots" checked style="accent-color: var(--primary-cyan); cursor: pointer;" />
+                  <label for="checkbox-fill-bots" style="font-size: 0.8rem; cursor: pointer;">Completar com Bots de IA</label>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 20px; display: flex; gap: 12px;">
+              <button class="btn btn-cyan" id="btn-start-race" style="display: none;">
+                <i class="fas fa-flag-checkered"></i> INICIAR CORRIDA
+              </button>
+              <button class="btn btn-outline-cyan" id="btn-toggle-ready">
+                <i class="fas fa-check"></i> ESTOU PRONTO
+              </button>
+            </div>
+          </div>
+
+          <!-- Coluna Convite e QR Code -->
+          <div class="qr-share-box">
+            <h4 style="font-size: 0.9rem; color: #ffffff;">
+              <i class="fas fa-qrcode"></i> Conectar Celular / Outro PC
+            </h4>
+            <p style="font-size: 0.75rem; color: var(--text-muted);">
+              Aponte a câmera do seu smartphone para o QR Code abaixo para entrar imediatamente nesta sala!
+            </p>
+            <div class="qr-image-container">
+              <img id="lobby-qrcode-img" src="" alt="QR Code da Sala" />
+            </div>
+            <div class="share-link-input-group">
+              <input type="text" id="share-room-link" class="cyber-input" readonly />
+              <button class="btn btn-sm btn-outline-cyan" id="btn-copy-link" style="width: auto;">
+                <i class="fas fa-copy"></i> Copiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         TELA 3: ARENA DE JOGO (CANVAS 2D + HUD + CONTROLES TOUCH)
+         ===================================================================== -->
+    <section class="screen" id="screen-game">
+      <div class="game-arena-wrapper">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- HUD Superior -->
+        <div class="hud-overlay">
+          <div class="hud-top-bar">
+            <!-- Posição Atual (1º, 2º, etc) -->
+            <div class="hud-badge">
+              <i class="fas fa-trophy" style="color: var(--neon-amber);"></i>
+              <span class="hud-rank" id="hud-rank-text">1º</span>
+            </div>
+
+            <!-- Velocímetro -->
+            <div class="hud-badge">
+              <i class="fas fa-gauge-high" style="color: var(--primary-cyan);"></i>
+              <span class="hud-speedometer"><strong id="hud-speed-value">0</strong> KM/H</span>
+            </div>
+
+            <!-- Contador de Voltas -->
+            <div class="hud-badge">
+              <i class="fas fa-rotate" style="color: #ffffff;"></i>
+              <span>VOLTA <strong id="hud-lap-text">1/3</strong></span>
+            </div>
+          </div>
+
+          <!-- Minimapa / Barra de Progresso Horizontal -->
+          <div class="minimap-bar-container">
+            <i class="fas fa-flag-checkered minimap-icon"></i>
+            <div class="minimap-track-line" id="minimap-track-line">
+              <!-- Bolinhas coloridas de cada carro geradas dinamicamente -->
+            </div>
+            <i class="fas fa-flag-checkered" style="color: #facc15; font-size: 0.8rem;"></i>
+          </div>
+        </div>
+
+        <!-- HUD Inferior (Item Slot e Nitro) -->
+        <div class="hud-bottom-overlay">
+          <div class="hud-item-box" id="hud-item-slot" title="Pressione ESPAÇO ou Toque para Usar">
+            <i class="fas fa-question text-muted"></i>
+          </div>
+          <div class="hud-item-info">
+            <span id="hud-item-label" style="font-size: 0.75rem; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;">SEM ITEM</span>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+              <i class="fas fa-bolt" style="font-size: 0.75rem; color: var(--primary-cyan);"></i>
+              <div class="hud-nitro-bar-container">
+                <div class="hud-nitro-fill" id="hud-nitro-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controles Touch na Tela (Para Celular e Tablet) -->
+        <div class="mobile-controls">
+          <div class="mobile-dpad">
+            <button class="touch-btn" id="btn-touch-left" aria-label="Esquerda">
+              <i class="fas fa-arrow-left"></i>
+            </button>
+            <button class="touch-btn" id="btn-touch-right" aria-label="Direita">
+              <i class="fas fa-arrow-right"></i>
+            </button>
+          </div>
+          <div class="mobile-actions">
+            <button class="touch-btn" id="btn-touch-brake" aria-label="Freio" style="border-color: #ef4444; color: #ef4444;">
+              <i class="fas fa-circle-down"></i>
+            </button>
+            <button class="touch-btn" id="btn-touch-nitro" aria-label="Nitro" style="border-color: var(--primary-cyan); color: var(--primary-cyan);">
+              <i class="fas fa-bolt"></i>
+            </button>
+            <button class="touch-btn touch-btn-item" id="btn-touch-item" aria-label="Usar Item">
+              <i class="fas fa-crosshairs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Overlay de Contagem Regressiva -->
+        <div class="countdown-overlay" id="countdown-overlay">
+          <div class="countdown-num" id="countdown-number">3</div>
+        </div>
+      </div>
+
+      <!-- Dica de Controles do Teclado (Desktop) -->
+      <div class="desktop-controls-hint">
+        <span class="key-badge">A / ◀</span> <span class="key-badge">D / ▶</span> Virar
+        | <span class="key-badge">W / ▲</span> Acelerar
+        | <span class="key-badge">S / ▼</span> Freio
+        | <span class="key-badge">ESPAÇO</span> Usar Item
+        | <span class="key-badge">SHIFT</span> Nitro
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         TELA 4: PÓDIO DOS CAMPEÕES (FIM DA PARTIDA)
+         ===================================================================== -->
+    <section class="screen" id="screen-podium">
+      <div class="cyber-card podium-container">
+        <h2 class="podium-title">🏆 PÓDIO DOS CAMPEÕES 🏆</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Resultado Final da Corrida</p>
+
+        <div class="podium-list" id="podium-results-list">
+          <!-- Preenchido dinamicamente com os 4 colocados -->
+        </div>
+
+        <div class="podium-actions">
+          <button class="btn btn-cyan" id="btn-podium-rematch">
+            <i class="fas fa-rotate-right"></i> Jogar Novamente (Mesma Sala)
+          </button>
+          <button class="btn btn-outline-cyan" id="btn-podium-home">
+            <i class="fas fa-house"></i> Voltar ao Menu
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Como Jogar / Guia de Itens -->
+  <div id="modal-help" style="display: none; position: fixed; inset: 0; background: rgba(5,8,17,0.85); backdrop-filter: blur(10px); z-index: 100; justify-content: center; align-items: center; padding: 20px;">
+    <div class="cyber-card" style="max-width: 520px; width: 100%;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="color: var(--primary-cyan); font-family: var(--font-title);"><i class="fas fa-book-open"></i> Guia da Corrida</h3>
+        <button id="btn-close-help" class="btn-icon"><i class="fas fa-xmark"></i></button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px; font-size: 0.85rem;">
+        <p><strong>🎯 Objetivo:</strong> Complete as voltas em 1º lugar desviando de obstáculos e usando itens estratégicos estilo Mario Kart!</p>
+        
+        <div>
+          <h4 style="color: var(--neon-amber); margin-bottom: 6px;"><i class="fas fa-box"></i> Caixas de Itens Misteriosos [?]:</h4>
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 6px; padding-left: 0;">
+            <li>⚡ <strong>Turbo Nitro:</strong> Explosão instantânea de velocidade máxima com rastro de fogo azul.</li>
+            <li>🛡️ <strong>Escudo Cibernético:</strong> Protege você contra 1 batida ou ataque adversário.</li>
+            <li>🛢️ <strong>Mancha de Óleo:</strong> Deixa uma poça glitch atrás de você; quem passar nela roda 360°!</li>
+            <li>⚡ <strong>Pulso EMP:</strong> Onda eletromagnética que desacelera todos os rivais próximos!</li>
+            <li>🚀 <strong>Míssil Teleguiado:</strong> Lança um foguete que persegue e atinge o rival à frente!</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 style="color: var(--primary-cyan); margin-bottom: 6px;"><i class="fas fa-wind"></i> Dica Especial - Vácuo (Slipstream):</h4>
+          <p>Ficar logo atrás de outro carro reduz a resistência do ar, criando um rastro de vento que acelera seu carro para ultrapassar!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    if (typeof io === 'undefined') {
+      document.write('<script src="/socket.io/socket.io.js"><\/script>');
+    }
+  </script>
+  <script src="js/audio.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/main.js"></script>
+
+  <script>
+    // Controle do Modal de Ajuda
+    const modalHelp = document.getElementById('modal-help');
+    document.getElementById('btn-open-help').addEventListener('click', () => {
+      modalHelp.style.display = 'flex';
+    });
+    document.getElementById('btn-close-help').addEventListener('click', () => {
+      modalHelp.style.display = 'none';
+    });
+    modalHelp.addEventListener('click', (e) => {
+      if (e.target === modalHelp) modalHelp.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
